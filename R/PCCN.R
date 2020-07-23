@@ -1,19 +1,22 @@
-GetPCCN <- function(e, rept = 10){
-  e <-
-    e[sort(rownames(e)), ] ### Pre-sort to generate PPI
+PCCN <- function(mRaw, rept = 10){
+  # d <-
+  #   mRaw[rowSums(mRaw, na.rm = TRUE) != 0, ]
+  # e <-
+  #   d[sort(rownames(d)), ] ### Pre-sort to generate PPI
   #### Modified PCC Euclidiean ###
-  f <-
-    e[apply(e, 1, function(x){
-      return(sum(ifelse(x == 0, 1, 0))) # Remove one-hit wonder
-    }) != ncol(e)-1, ]
-  A <-
-    f[apply(f, 1, sd) != 0, ] # Remove SD=0
+  # f <-
+  #   e[apply(e, 1, function(x){
+  #     return(sum(ifelse(x == 0, 1, 0))) # Remove one-hit wonder
+  #   }) != ncol(e)-1, ]
+  # A <-
+  #   f[apply(f, 1, sd) != 0, ] # Remove SD=0
+  A <- mRaw
   M <-
     ncol(A)
   N <-
     nrow(A)
   i <- 0
-  message("Compute PCC ...")
+  # message("Compute PCC ...")
   pb <-
     txtProgressBar(min = 1, max = rept, style = 3)
   repeat{
@@ -42,11 +45,11 @@ GetPCCN <- function(e, rept = 10){
     PCC.mat/rept
   PCC <-
     PCC.mat.avg[lower.tri(PCC.mat.avg, diag = FALSE)]
-  s <-
-    RcppAlgos::comboGeneral(rownames(A), 2)
-  datPPI <-
-    data.frame(`PPI` = paste(s[, 1], s[, 2], sep = "~"),
-               `PCCN` = PCC,
-               stringsAsFactors = FALSE)
-  return(datPPI)
+  # s <-
+  #   RcppAlgos::comboGeneral(rownames(A), 2)
+  # datPPI <-
+  #   data.frame(`PPI` = paste(s[, 1], s[, 2], sep = "~"),
+  #              `PCCN` = PCC,
+  #              stringsAsFactors = FALSE)
+  return(PCC)
 }
