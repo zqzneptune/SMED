@@ -82,4 +82,5 @@ MachineLearning <- function(rawScore, refIntTrain, fnMachine){
     cbind(rawScore, datPred)
   datScore[, "SMED"] <-
     avePred
+  return(datScore)
 }

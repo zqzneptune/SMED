@@ -1,7 +1,4 @@
-SMED <- function(mRaw, trainInt){
-  fnMachine <-
-    c("adaboost", "earth", "rf", "svmRadial",
-      "LogitBoost", "kknn", "gbm")
+SMED <- function(mRaw, trainInt, fnMachine){
   rawScore <-
     SMED::EultionScore(mRaw)
   datSMED <-
