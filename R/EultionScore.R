@@ -2,7 +2,7 @@ EultionScore <- function(mRaw){
   d <-
     mRaw[rowSums(mRaw, na.rm = TRUE) != 0, ]
   e <-
-    d[sort(rownames(d)), ] ### Pre-sort to generate PPI
+    d[sort(rownames(d)), ]
   s <-
     RcppAlgos::comboGeneral(rownames(e), 2)
   message("Computing Dice ...")

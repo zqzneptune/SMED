@@ -1,8 +1,4 @@
 MachineLearning <- function(rawScore, refIntTrain, fnMachine){
-  # fnMachine <-
-  #   c("adaboost", "earth", "rf", "svmRadial",
-  #     "LogitBoost", "kknn", "gbm")
-  # library(pROC)
   library(Hmisc)
   library(RcppAlgos)
   library(caret)
@@ -14,14 +10,12 @@ MachineLearning <- function(rawScore, refIntTrain, fnMachine){
            ifelse(rawPPI %in% refIntTrain$TN$PPI, 0, NA))
   datScore <-
     rawScore[, -1]
-  ### Imputation
   datTrain <-
     apply(datScore, 2, function(x){
       impute(x)
     })
   preProcess_missingdata_model <-
     preProcess(datTrain)
-  # preProcess_missingdata_model
   prepData <-
     predict(preProcess_missingdata_model, newdata = datTrain)
   trainData <-
@@ -33,13 +27,8 @@ MachineLearning <- function(rawScore, refIntTrain, fnMachine){
            ifelse(trainData$PPI %in% refIntTrain$TN$PPI, "N", NA))
   trainData <-
     trainData[!is.na(trainData$Response), -1]
-  # summary(as.factor(trainData$Response))
-  # set.seed(998)
-  # inTraining <-
-  #   #  sample(seq_len(nrow(trainData)), 20000)
-  #   createDataPartition(trainData$Response, p = .1, list = FALSE)
   training <-
-    trainData#[inTraining, ]
+    trainData
   summary(as.factor(training$Response))
   set.seed(100)
   fitControl <-
@@ -67,17 +56,10 @@ MachineLearning <- function(rawScore, refIntTrain, fnMachine){
     listPred[[fnM]] <-
       preds[, "Y"]
   }
-  # listAUCs <-
-  #   lapply(listPred, function(sc){
-  #     suppressMessages(objs <- roc(rawResponsce, sc, na.rm = TRUE))
-  #     return(auc(objs))
-  #   })
   datPred <-
     do.call(cbind, listPred)
   avePred <-
     rowMeans(datPred)
-  # pAUC <-
-  #   roc(rawResponsce, avePred, na.rm = TRUE)
   datScore <-
     cbind(rawScore, datPred)
   datScore[, "SMED"] <-
