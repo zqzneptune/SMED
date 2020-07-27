@@ -1,4 +1,4 @@
-GetTrainPPI <- function(rawCpx){
+GetComplexPPI <- function(rawCpx){
   refCpx <-
     lapply(rawCpx, function(x){return(unique(x))})
   allGene <-
