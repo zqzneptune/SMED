@@ -1,10 +1,10 @@
-ScorePCCN <- function(rawMat, n_fracs = 2, rept = 10, cutoff = 0.5){
+ScorePCCN <- function(rawMat, n_fracs = 2, rept = 10, cutoff = 0.5, top_n = NULL){
   mat <-
     rawMat[sort(rownames(rawMat)), ]
   fmat <-
     FilterMat(mat, n_fracs = n_fracs)
   fmat[is.na(fmat)] <- 0
-  
+
   A <- fmat
   M <-
     ncol(A)
@@ -36,23 +36,28 @@ ScorePCCN <- function(rawMat, n_fracs = 2, rept = 10, cutoff = 0.5){
     }
   }
   close(pb)
-  
+
   PCC.mat.avg <-
     PCC.mat/rept
-  
+
   rawPPI <-
     GetPrtPPI(rownames(fmat))
-  
+
   rawPPI[, "PCCN"] <-
     PCC.mat.avg[lower.tri(PCC.mat.avg, diag = FALSE)]
-  
-  finalPPI <-
-    rawPPI[rawPPI$PCCN >= cutoff, ]
+  if(is.null(top_n)){
+    finalPPI <-
+      rawPPI[rawPPI$PCCN >= cutoff, ]
+  }else{
+    finalPPI <-
+      rawPPI[order(-rawPPI$PCCN), ][1:top_n, ]
+  }
+
   return(finalPPI[, c("PPI", "PCCN")])
-  
+
   # finalPPI <-
   #   rawPPI[rev(order(rawPPI$PCCN)), ]
-  # 
+  #
   # if(nrow(finalPPI) > top_ppi){
   #   datPPI <-
   #     finalPPI[1:top_ppi, ]
