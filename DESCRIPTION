@@ -1,7 +1,7 @@
 Package: SMED
 Type: Package
 Title: Statistical Modelling of coelution mass spectrometry data
-Version: 0.99.9
+Version: 0.99.10
 Author: Qingzhou Zhang
 Maintainer: Qingzhou Zhang <zqzneptune@hotmail.com>
 Description: Assigning probability scores to co-eluted proteins from biochemical
