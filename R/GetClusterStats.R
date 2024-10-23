@@ -21,13 +21,13 @@ GetClusterStats <- function(Cpx){
       "NumSubunits" =
         length(unique(unlist(Cpx))),
       "PctDimers" =
-        sprintf("%.2f%%", NumDimers/NumCpx*100),
+        NumDimers/NumCpx*100,
       "PctTrimers" =
-        sprintf("%.2f%%", NumTrimers/NumCpx*100),
+        NumTrimers/NumCpx*100,
       "PctLarge" =
-        sprintf("%.2f%%", NumLarge/NumCpx*100),
+        NumLarge/NumCpx*100,
       "AvgCpxSize" =
-        sprintf("%.2f", AvgCpxSize)
+        AvgCpxSize
     )
   )
 }
