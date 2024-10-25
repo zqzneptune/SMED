@@ -35,6 +35,8 @@ StatsCpx <- function(Cpx){
 # Citation: Zhang X-F, Dai D-Q, Ou-Yang L, Wu M-Y (2012) Exploring Overlapping Functional Units with Various Structure in Protein Interaction Networks. PLoS ONE 7(8): e43092. https://doi.org/10.1371/journal.pone.0043092
 # Source: Text S2. https://doi.org/10.1371/journal.pone.0043092.s005
 EvaCpx <- function(cpxG, cpxC){
+  library(parallel)
+  num_cores <- detectCores() - 1
   sizeG <-
     unlist(lapply(cpxG, length))
   sizeG <-
@@ -53,12 +55,15 @@ EvaCpx <- function(cpxG, cpxC){
     message("No overlap detected.")
     return(NULL)
   }else{
-    prT <-
-      matrix(unlist(lapply(cpxG, function(G){
-        lapply(cpxC, function(P){
+    prLst <-
+      mclapply(cpxG, function(G) {
+        sapply(cpxC, function(P) {
           length(intersect(G, P))
         })
-      })), byrow = TRUE, ncol = length(cpxC))
+      }, mc.cores = num_cores)
+
+    prT <-
+      matrix(unlist(prLst), byrow = TRUE, ncol = length(cpxC))
 
     mPrT <-
       apply(prT, 1, max)
@@ -70,12 +75,15 @@ EvaCpx <- function(cpxG, cpxC){
     PPV <-
       sum(nPrT)/sum(sizePvsGS)
 
-    prJac <-
-      matrix(unlist(lapply(cpxG, function(G){
-        lapply(cpxC, function(P){
-          length(intersect(G, P))/length(union(G, P))
+    prJacLst <-
+      mclapply(cpxG, function(G) {
+        sapply(cpxC, function(P) {
+          length(intersect(G, P)) / length(union(G, P))
         })
-      })), byrow = TRUE, ncol = length(cpxC))
+      }, mc.cores = num_cores)
+
+    prJac <-
+      matrix(unlist(prJacLst), byrow = TRUE, ncol = length(cpxC))
 
     mJacG <-
       apply(prJac, 1, max)
@@ -88,12 +96,15 @@ EvaCpx <- function(cpxG, cpxC){
     Jaccd <-
       2 * jacP * jacG /(jacP + jacG)
 
-    prPR <-
-      matrix(unlist(lapply(cpxG, function(G){
-        lapply(cpxC, function(P){
+    prPRLst <-
+      mclapply(cpxG, function(G){
+        sapply(cpxC, function(P){
           length(intersect(G, P))^2/length(P)/length(G)
         })
-      })), byrow = TRUE, ncol = length(cpxC))
+      }, mc.cores = num_cores)
+
+    prPR <-
+      matrix(unlist(prPRLst), byrow = TRUE, ncol = length(cpxC))
     mPrPRG <-
       apply(prPR, 1, max)
     PRG <-
