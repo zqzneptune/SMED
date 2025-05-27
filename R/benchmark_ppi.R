@@ -16,7 +16,8 @@
 #' @return A ROC object from the `pROC` package.
 #' @export
 #' @importFrom pROC roc
-#' @importFrom dplyr filter `%>%`
+#' @importFrom dplyr filter
+#' @importFrom magrittr `%>%`
 #' @examples
 #' # Create dummy data
 #' ppi_preds <- paste0("P", 1:10, "~P", 11:20)

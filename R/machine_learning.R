@@ -119,35 +119,9 @@ preprocess_score_matrix <- function(score_matrix) {
 #' @importFrom parallel makeCluster
 #' @importFrom doParallel registerDoParallel stopImplicitCluster
 #' @importFrom pROC roc auc
-#' @examples
-#' if (requireNamespace("caret", quietly = TRUE) &&
-#'     requireNamespace("doParallel", quietly = TRUE) &&
-#'     requireNamespace("Hmisc", quietly = TRUE) &&
-#'     requireNamespace("randomForest", quietly = TRUE)) { # For "rf"
-#'
-#'   # Dummy data
-#'   set.seed(42)
-#'   scores <- data.frame(Feature1 = rnorm(100), Feature2 = rnorm(100))
-#'   responses <- factor(sample(c("Y", "N"), 100, replace = TRUE))
-#'   scores[1,1] <- NA # Add an NA
-#'
-#'   # Train a model (e.g., Random Forest "rf")
-#'   # Use fewer cores for example
-#'   predicted_probs <- integrate_ppi_scores_and_train(
-#'     raw_score_df = scores,
-#'     response_vector = responses,
-#'     model_method = "rf",
-#'     num_cv_folds = 2, # Fewer for example
-#'     num_cv_repeats = 1,
-#'     num_cores = 1 # Sequential for this example
-#'   )
-#'   # print(summary(predicted_probs))
-#'   if (length(unique(responses[!is.na(responses)])) == 2 &&
-#'       !all(is.na(predicted_probs))) {
-#'      # roc_obj <- pROC::roc(responses, predicted_probs, quiet=TRUE)
-#'      # print(pROC::auc(roc_obj))
-#'   }
-#' }
+#' @importFrom stats predict
+
+
 integrate_ppi_scores_and_train <- function(raw_score_df,
                                            response_vector,
                                            model_method,
@@ -296,43 +270,8 @@ integrate_ppi_scores_and_train <- function(raw_score_df,
 #'   probabilities from each trained model. If `average_predictions` is `TRUE`,
 #'   an additional "SMED_Score" column is also included.
 #' @export
-#' @examples
-#' if (requireNamespace("caret", quietly = TRUE) &&
-#'     requireNamespace("doParallel", quietly = TRUE) &&
-#'     requireNamespace("Hmisc", quietly = TRUE) &&
-#'     requireNamespace("randomForest", quietly = TRUE) && # for "rf"
-#'     requireNamespace("glmnet", quietly = TRUE)) {      # for "glmnet"
-#'
-#'   # Dummy data
-#'   set.seed(123)
-#'   num_ppi <- 100
-#'   dummy_scores <- data.frame(
-#'     PPI = paste0("P", 1:num_ppi, "~P", (num_ppi+1):(2*num_ppi)),
-#'     Feature1 = rnorm(num_ppi),
-#'     Feature2 = rnorm(num_ppi, mean = 0.5, sd = 1.5)
-#'   )
-#'   dummy_scores[sample(nrow(dummy_scores), 5), "Feature1"] <- NA # Add NAs
-#'
-#'   tp_ppi <- sample(dummy_scores$PPI, 30)
-#'   tn_ppi <- sample(setdiff(dummy_scores$PPI, tp_ppi), 30)
-#'   ref_train <- list(
-#'     TP = data.frame(PPI = tp_ppi, stringsAsFactors = FALSE),
-#'     TN = data.frame(PPI = tn_ppi, stringsAsFactors = FALSE)
-#'   )
-#'
-#'   # Train with a couple of models (e.g., "rf", "glmnet")
-#'   # Reduce folds/repeats and cores for quick example
-#'   final_scores_df <- train_ensemble_ppi_models(
-#'     ppi_score_df = dummy_scores,
-#'     reference_train_interactome = ref_train,
-#'     model_methods_vector = c("rf", "glmnet"),
-#'     num_cv_folds = 2,
-#'     num_cv_repeats = 1,
-#'     num_cores = 1 # Sequential for this example
-#'   )
-#'   # print(head(final_scores_df))
-#'   # print(colnames(final_scores_df))
-#' }
+
+
 train_ensemble_ppi_models <- function(
     ppi_score_df,
     reference_train_interactome,

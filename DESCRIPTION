@@ -10,7 +10,6 @@ Description: Assigning probability scores to co-eluted proteins from biochemical
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-LinkingTo: Rcpp
 RoxygenNote: 7.3.2
 Imports:
      utils,

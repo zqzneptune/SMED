@@ -45,33 +45,3 @@ Trains a specified machine learning model using `caret` on provided scores
 and responses. It handles data imputation and preprocessing.
 This function is suitable for training one model at a time.
 }
-\examples{
-if (requireNamespace("caret", quietly = TRUE) &&
-    requireNamespace("doParallel", quietly = TRUE) &&
-    requireNamespace("Hmisc", quietly = TRUE) &&
-    requireNamespace("randomForest", quietly = TRUE)) { # For "rf"
-
-  # Dummy data
-  set.seed(42)
-  scores <- data.frame(Feature1 = rnorm(100), Feature2 = rnorm(100))
-  responses <- factor(sample(c("Y", "N"), 100, replace = TRUE))
-  scores[1,1] <- NA # Add an NA
-
-  # Train a model (e.g., Random Forest "rf")
-  # Use fewer cores for example
-  predicted_probs <- integrate_ppi_scores_and_train(
-    raw_score_df = scores,
-    response_vector = responses,
-    model_method = "rf",
-    num_cv_folds = 2, # Fewer for example
-    num_cv_repeats = 1,
-    num_cores = 1 # Sequential for this example
-  )
-  # print(summary(predicted_probs))
-  if (length(unique(responses[!is.na(responses)])) == 2 &&
-      !all(is.na(predicted_probs))) {
-     # roc_obj <- pROC::roc(responses, predicted_probs, quiet=TRUE)
-     # print(pROC::auc(roc_obj))
-  }
-}
-}
