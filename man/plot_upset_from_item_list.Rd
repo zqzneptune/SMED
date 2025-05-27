@@ -2,115 +2,69 @@
 % Please edit documentation in R/visualization_upset.R
 \name{plot_upset_from_item_list}
 \alias{plot_upset_from_item_list}
-\title{Create an UpSet Plot from a List of Sets}
+\title{Plot an UpSet Diagram from a List of Item Sets}
 \usage{
-plot_upset_from_item_list(
-  item_membership_df,
-  sets_col_name,
-  num_intersections = 20,
-  main_bar_fill_color = "steelblue",
-  text_size_count = 3
-)
+plot_upset_from_item_list(item_list, n_intersections = 20)
 }
 \arguments{
-\item{num_intersections}{Integer, the maximum number of intersections to
-display in the UpSet plot. Passed to `ggupset::scale_x_upset`. Default 20.}
+\item{item_list}{A named list. Each name is treated as a "set ID",
+and the corresponding value must be a vector (typically character)
+of "elements" belonging to that set. For example:
+`list(SetA = c("gene1", "gene2"), SetB = c("gene2", "gene3"))`.}
 
-\item{main_bar_fill_color}{Character, color for the main intersection bars.
-Default "steelblue".}
-
-\item{text_size_count}{Integer, size of the text labels for intersection counts.
-Default 3.}
-
-\item{item_sets_list}{A named list where names are items and each element
-is a character vector of set names that the item belongs to.
-Example: `list(ItemA = c("Set1", "Set2"), ItemB = c("Set2", "Set3"))`.}
+\item{n_intersections}{Integer, the maximum number of intersections to display
+in the UpSet plot. Passed to `ggupset::scale_x_upset()`.
+Defaults to 20.}
 }
 \value{
-A `ggplot` object representing the UpSet plot.
+A `ggplot` object representing the UpSet plot. This can be further
+  customized using standard `ggplot2` functions.
 }
 \description{
-Generates an UpSet plot to visualize intersections of multiple sets.
-The input is a named list where each element is a vector representing a set,
-and names represent the items. The plot shows the sizes of intersections.
+Generates an UpSet plot to visualize intersections of elements across
+different named sets. This function takes a named list where names
+represent the sets, and each list element is a vector of elements
+belonging to that set.
+}
+\details{
+The function first processes the input `item_list` using `utils::stack` and
+`utils::unstack`. This step typically results in a list where individual
+elements within each set are factors. This list of sets is then organized
+into a data frame where one column (named 'Term' internally) is a
+list-column containing these sets. This data frame structure is then used by
+`ggupset` to generate the plot.
+
+Ensure that the `ggplot2` and `ggupset` packages are installed.
+This function requires them to be listed in the `Imports:` field of your
+package's DESCRIPTION file. `utils` is a base package.
 }
 \examples{
-# Example data: list of items and the sets they belong to
-upset_data <- list(
-  Item1 = c("SetA", "SetB"),
-  Item2 = c("SetB", "SetC"),
-  Item3 = c("SetA", "SetC"),
-  Item4 = c("SetA"),
-  Item5 = c("SetB"),
-  Item6 = c("SetA", "SetB", "SetC"),
-  Item7 = c("SetD") # A set not overlapping much
+# Sample data: a list of gene sets for different conditions
+sample_sets <- list(
+  Condition_A = c("Gene1", "Gene2", "Gene3", "Gene4"),
+  Condition_B = c("Gene3", "Gene4", "Gene5", "Gene6"),
+  Condition_C = c("Gene1", "Gene5", "Gene7"),
+  Condition_D = c("Gene8") # A set with unique elements
 )
 
-# Convert to the expected format for this function:
-# A data frame where one column is 'Item' and another is 'Sets' (a list column)
-if (requireNamespace("ggupset", quietly = TRUE) &&
-    requireNamespace("dplyr", quietly = TRUE) &&
-    requireNamespace("tidyr", quietly = TRUE) ){
-
-  # Create data in the format ggplot(aes(x=Sets)) expects
-  # This requires items to be observations, and sets they belong to
-  # are in a list-column.
-  # The original function's input `listTerms` was `list(SetA=c(I1,I2), SetB=c(I1,I3))`.
-  # `PlotUpset(list(A=c("AA","BB","CC"), B=c("BB","CC","DD")))`
-  # This means AA is in A, BB in A&B, CC in A&B, DD in B.
-  # The function below expects `list(AA=c("A"), BB=c("A", "B"), ...)`
-  # Let's adapt the example to reflect original `PlotUpset` input `listTerms`.
-
-  list_of_set_members <- list(
-      SetA = c("Prot1", "Prot2", "Prot3"),
-      SetB = c("Prot2", "Prot3", "Prot4"),
-      SetC = c("Prot3", "Prot4", "Prot5", "Prot6")
-  )
-
-  # Convert to tidy format needed by ggupset: item, list_of_sets_item_is_in
-  # This conversion can be complex. The original code `unstack(stack(listTerms))`
-  # followed by `datItem$Term <- rawTerms` and then `ggplot(aes(x=Term))`
-  # implies Term is the list-column of sets.
-  # Let's use tidyr to achieve this conversion:
-  tidy_upset_data <- tidyr::enframe(list_of_set_members, name = "set", value = "item") \%>\%
-    tidyr::unnest(item) \%>\%
-    dplyr::group_by(item) \%>\%
-    dplyr::summarize(sets_item_is_in = list(set), .groups = "drop")
-
-  # Now, `tidy_upset_data` has 'item' and 'sets_item_is_in' (list-column)
-  # The plot function needs the list-column for `aes(x=...)`.
-  # So, the `item_sets_list` for `plot_upset_from_item_list` should be
-  # `list(Prot1=c("SetA"), Prot2=c("SetA", "SetB"), ...)`
-
-  # Reconstructing example input based on how original function worked:
-  # Original `listTerms` example: `list(A = c("AA", "BB", "CC"), B = c("BB", "CC", "DD", "EE"))`
-  # This implies:
-  # AA is in A
-  # BB is in A and B
-  # CC is in A and B
-  # DD is in B
-  # EE is in B
-  # The data frame for ggupset would then have a column `Term` which is a list,
-  # where each element is `c("A")`, `c("A", "B")`, `c("A", "B")`, `c("B")`, `c("B")`.
-  # The original code `rawTerms <- unstack(stack(listTerms)[, c("ind", "values")])`
-  # `datItem <- data.frame(Item = names(rawTerms)); datItem$Term <- rawTerms`
-  # If listTerms is `list(A=c("g1","g2"), B=c("g2","g3"))`:
-  # stack(listTerms) -> values=c("g1","g2","g2","g3"), ind=c("A","A","B","B")
-  # unstack(...) depends on structure. Let's assume `item_sets_list` is correct.
-
-  # Example directly using `item_sets_list` format
-  item_membership <- list(
-    Item_AA = c("SetA"),
-    Item_BB = c("SetA", "SetB"),
-    Item_CC = c("SetA", "SetB"),
-    Item_DD = c("SetB"),
-    Item_EE = c("SetB")
-  )
-  # Convert to data frame where the list-column is named 'Sets' for the plot func
-  plot_df <- data.frame(Item = names(item_membership))
-  plot_df$Observed_Sets <- item_membership # list-column
-
-  # upset_plot_obj <- plot_upset_from_item_list(plot_df, "Observed_Sets")
-  # print(upset_plot_obj)
+# Generate the UpSet plot
+if (requireNamespace("ggplot2", quietly = TRUE) &&
+    requireNamespace("ggupset", quietly = TRUE)) {
+  upset_plot <- plot_upset_from_item_list(sample_sets, n_intersections = 10)
+  # To display the plot:
+  # print(upset_plot)
 }
+
+# Example with specific elements
+category_elements <- list(
+  `Category X` = c("Element1", "Element2", "Element3"),
+  `Category Y` = c("Element2", "Element3", "Element4"),
+  `Category Z` = c("Element3", "Element5")
+)
+if (requireNamespace("ggplot2", quietly = TRUE) &&
+    requireNamespace("ggupset", quietly = TRUE)) {
+  # upset_plot_cat <- plot_upset_from_item_list(category_elements)
+  # print(upset_plot_cat)
+}
+
 }
