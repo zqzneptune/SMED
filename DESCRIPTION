@@ -11,3 +11,23 @@ License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 LinkingTo: Rcpp
+RoxygenNote: 7.3.2
+Imports:
+     utils,
+     pROC,
+     dplyr,
+     ggplot2,
+     RcppAlgos,
+     Hmisc,
+     caret,
+     doParallel,
+     ggupset,
+     ptw,
+     proxy,
+     RColorBrewer,
+     arules,
+     ggridges,
+     infotheo,
+     magrittr,
+     progress,
+     reshape2
