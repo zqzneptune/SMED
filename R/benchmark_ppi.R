@@ -7,14 +7,16 @@
 #'
 #' @section Benchmarking Methodology:
 #' The function implements a standard ROC analysis workflow:
-#' 1. Matches predicted PPIs against reference True Positives (TP) and True Negatives (TN)
+#' 1. Matches predicted PPIs against reference True Positives (TP) and 
+#' True Negatives (TN)
 #' 2. Assigns binary labels (1 for TP matches, 0 for TN matches)
 #' 3. Computes ROC curve using the pROC package
 #' 4. Returns ROC object for further analysis and visualization
 #'
 #' @section Evaluation Metrics:
 #' The ROC curve provides several key metrics:
-#' - AUC (Area Under Curve): Overall prediction accuracy (0.5 = random, 1 = perfect)
+#' - AUC (Area Under Curve): Overall prediction accuracy (0.5 = random,
+#'  1 = perfect)
 #' - Sensitivity/Recall: True Positive Rate
 #' - Specificity: True Negative Rate
 #' - Optimal cutoff: Balance between sensitivity and specificity
@@ -72,8 +74,10 @@
 #' # Generate all possible PPIs from predicted complexes
 #' pred_ppis <- generate_all_pairwise_ppi(PredCpx_Havugimana_PC_Cell_2012_n_622)
 #'
-#' # Create reference set (TP = within same CORUM complex, TN = between complexes)
-#' ref_set <- generate_reference_ppi_sets(RefCORUM_Havugimana_PC_Cell_2012_n_324)
+#' # Create reference set (TP = within same CORUM complex, 
+#' TN = between complexes)
+#' ref_set <- 
+#' generate_reference_ppi_sets(RefCORUM_Havugimana_PC_Cell_2012_n_324)
 #'
 #' # Score PPIs using co-apex method (example scoring function)
 #' scores <- score_ppi_by_coapex(pred_ppis, 
