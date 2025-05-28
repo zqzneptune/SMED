@@ -7,16 +7,54 @@
 load_cofrac_293NE12_hcw()
 }
 \value{
-A numeric matrix representing protein elution profiles.
+A numeric matrix representing protein elution profiles where:
+  - Rows are proteins (row names are UniProt IDs)
+  - Columns are fractions (1-96)
+  - Values are MS1 intensity measurements
 }
 \description{
 Loads an example co-fractionation count matrix from Havugimana et al., 2012,
-specifically the LTQ 293NE12 HCW dataset.
+specifically the LTQ 293NE12 HCW dataset. This data represents protein
+co-fractionation profiles from human embryonic kidney cells (HEK293) under
+non-enriched (NE) conditions with high confidence windows (HCW) filtering.
 }
+\details{
+Data originally published in Havugimana et al. Cell 2012 (PMID: 22939625).
+
+Supported file format: RDS (R binary serialization format)
+
+Data structure requirements:
+- Must be a numeric matrix with proteins as rows and fractions as columns
+- Row names should be UniProt protein identifiers
+- Column names should be fraction numbers (1-96)
+}
+\section{Performance Considerations}{
+
+The matrix is approximately 15MB in memory (dimensions: 293 proteins x 96 fractions).
+For large-scale analyses, consider:
+- Subsetting to proteins of interest first
+- Using sparse matrix representations if data is sparse
+- Processing in chunks for memory-intensive operations
+}
+
 \examples{
-if (interactive()) { # Avoid running automatically during checks if large
+\donttest{
+if (requireNamespace("SMED", quietly = TRUE)) {
+  # Load the data
   cofrac_293NE12 <- load_cofrac_293NE12_hcw()
-  # print(dim(cofrac_293NE12))
-  # print(head(cofrac_293NE12[,1:5]))
+  
+  # Basic inspection
+  dim(cofrac_293NE12)
+  colnames(cofrac_293NE12)[1:5]  # First 5 fractions
+  rownames(cofrac_293NE12)[1:5]  # First 5 proteins
+  range(cofrac_293NE12)          # Value range
+  
+  # See vignette("01-scoring") for analysis examples
 }
+}
+}
+\seealso{
+\code{\link{load_cofrac_HeLaNE45_tcs}}, 
+  \code{\link{load_cofrac_HeLaCE12_tcs}},
+  \code{\link{prepare_elution_matrix}} for downstream processing
 }

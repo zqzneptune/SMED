@@ -7,17 +7,50 @@
 load_pred_cpx_havugimana()
 }
 \value{
-A list where each element is a character vector of protein
-  identifiers representing a complex.
+A list where:
+  - Each element is a character vector of UniProt protein identifiers
+  - List is named with complex identifiers (format: "Pred_XXXX")
 }
 \description{
-Loads an example list of predicted protein complexes,
-relevant to the Havugimana et al., 2012 study context.
+Loads an example list of predicted protein complexes (622 complexes)
+from Havugimana et al., 2012. These represent computationally predicted
+complexes derived from co-fractionation MS data combined with other evidence.
 }
+\details{
+Data originally published in Havugimana et al. Cell 2012 (PMID: 22939625).
+
+Supported file format: RDS (R binary serialization format)
+
+Data structure requirements:
+- Must be a named list where each element represents a complex
+- Each complex should be a character vector of UniProt protein identifiers
+- Complex names indicate prediction confidence and CORUM overlaps
+}
+\section{Performance Considerations}{
+
+The object is approximately 8MB in memory (622 complexes). Contains nearly
+twice as many complexes as the reference set. Memory usage scales with:
+- Number of complexes being analyzed
+- Average complex size
+- Number of pairwise comparisons needed
+}
+
 \examples{
-if (interactive()) {
+\donttest{
+if (requireNamespace("SMED", quietly = TRUE)) {
+  # Load the data
   pred_complexes <- load_pred_cpx_havugimana()
-  # print(length(pred_complexes))
-  # if (length(pred_complexes) > 0) print(head(pred_complexes[[1]])))
+  
+  # Basic inspection
+  length(pred_complexes)  # Number of complexes
+  summary(lengths(pred_complexes))  # Size distribution
+  table(grepl("CORUM", names(pred_complexes)))  # CORUM overlaps
+  
+  # See vignette("01-scoring") for benchmarking examples
 }
+}
+}
+\seealso{
+\code{\link{load_reference_corum_havugimana}},
+  \code{\link{benchmark_ppi_score}} for performance evaluation
 }

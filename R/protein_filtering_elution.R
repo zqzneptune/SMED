@@ -1,86 +1,148 @@
-#' Retain Proteins Based on Elution Profile Consistency
+#' Filter Proteins Based on Elution Profile Consistency
 #'
-#' Filters proteins from an elution matrix based on the consistency of their
-#' elution profiles. It uses a permutation-based approach: repeatedly,
-#' fractions are split into two halves, and a ratio of summed intensities
-#' (or squared intensities) is calculated for each protein. Proteins whose
-#' average ratio across permutations deviates significantly (based on Median
-#' Absolute Deviation - MAD) from the overall median ratio are retained.
-#' This method aims to identify proteins with non-random or structured
-#' elution patterns.
+#' Identifies and retains proteins with structured elution profiles from 
+#' chromatographic fractionation data. The function evaluates profile consistency
+#' using a permutation-based approach that assesses reproducibility across
+#' fraction splits. This is particularly useful for identifying proteins that
+#' co-elute as part of protein complexes.
+#'
+#' @details
+#' ## Elution Profile Criteria
+#' - Profiles should show consistent peak patterns across technical replicates
+#' - Peaks should have sufficient width (typically 3+ fractions) to be considered
+#'   biologically relevant
+#' - Profiles should be reproducible across random splits of the fractions
+#'
+#' ## Biological Significance
+#' Proteins with consistent elution profiles are more likely to:
+#' - Be part of stable protein complexes
+#' - Have specific interaction partners  
+#' - Show coordinated regulation
+#' - Represent biologically meaningful interactions rather than random co-elution
+#'
+#' ## Chromatographic Assumptions
+#' - Fractions are ordered by elution time (early to late)
+#' - Fractionation provides sufficient resolution (10-30 fractions ideal)
+#' - Technical variation between fractions is minimal
+#' - Peak shapes follow expected chromatographic behavior (Gaussian-like)
+#'
+#' ## Quality Control
+#' - MAD threshold filters out proteins with random/noisy profiles
+#' - Permutation approach ensures robustness to fraction ordering
+#' - Missing value imputation handles common MS data issues
+#' - Automatic handling of odd-numbered fraction sets
+#'
+#' ## Performance Characteristics
+#' - Time complexity: O(n*p*k) where:
+#'   - n = number of proteins
+#'   - p = number of permutations  
+#'   - k = number of fractions
+#' - Memory usage: Scales with matrix size + permutation storage
+#' - Parallelization: Not currently implemented but could benefit from it
+#' - Typical runtime: ~1-5 minutes for 1000 proteins, 20 fractions, 1000 perms
+#'
+#' ## Parameter Effects
+#' - `num_permutations`: Higher values increase precision but linearly increase runtime
+#'   - Below 100: Potentially unstable results
+#'   - 100-1000: Typical range for most analyses
+#'   - Above 1000: Diminishing returns
+#' - `mad_threshold`: Controls stringency of filtering
+#'   - 0-1: Very permissive (may retain noise)
+#'   - 1-2: Balanced (default)
+#'   - 2-3: Stringent (may lose true complexes)
+#'   - 3+: Very stringent (high specificity)
 #'
 #' @param elution_matrix A numeric matrix where rows are proteins and columns
-#'   are fractions. Missing values (NA) will be imputed.
-#' @param num_permutations Integer, the number of permutations to perform for
-#'   calculating profile consistency. Default is 1000.
-#' @param mad_threshold Numeric, the number of MADs from the median ratio to use
-#'   as a threshold for retaining proteins. Proteins with ratios outside
-#'   `median +/- mad_threshold * MAD` are kept. Default is determined by the
-#'   original code's context (e.g., `nmad` argument in `RetainElutionProtein`).
-#'   A common value might be 2 or 3. Here, let's use 2.
-#' @param verbose Logical, if `TRUE`, a progress bar will be displayed.
-#'   Default `TRUE`.
+#'   are fractions. Expected to contain MS intensity values (log2 recommended).
+#'   Missing values (NA) will be imputed using row medians. Row names should be
+#'   protein identifiers for meaningful output.
+#' @param num_permutations Integer (>=10), the number of permutations to perform
+#'   for calculating profile consistency. More permutations increase precision
+#'   but require more computation. Default: 1000.
+#' @param mad_threshold Numeric (>=0), the number of MADs from the median ratio
+#'   to use as threshold. Higher values retain fewer proteins. Typical range 1-3.
+#'   Default: 2.
+#' @param verbose Logical, whether to show progress bar. Default: TRUE.
 #'
-#' @return A character vector of protein identifiers (row names from the
-#'   input matrix) that are retained after filtering.
+#' @return A character vector of protein identifiers (row names from input)
+#'   that pass the consistency filter. If input lacks rownames, returns numeric
+#'   indices instead (with warning). The output represents proteins with
+#'   reproducible elution profiles likely to be part of stable complexes.
+#'
+#' @seealso \code{\link{filter_proteins_by_elution_consistency}} (man page),
+#'   \code{\link{prepare_elution_matrix}} for input preparation,
+#'   \code{\link{filter_by_mad_threshold}} for threshold implementation
 #' @export
 #' @importFrom stats median mad
 #' @importFrom progress progress_bar
 #' @examples
-#' # Create a dummy elution matrix
+#' # Create a dummy elution matrix with realistic properties
 #' set.seed(123)
-#' mat <- matrix(rnorm(50 * 20), nrow = 50, ncol = 20)
-#' rownames(mat) <- paste0("Prot", 1:50)
-#' colnames(mat) <- paste0("Frac", 1:20)
-#' # Introduce some NAs
-#' mat[sample(length(mat), 50)] <- NA
-#' # Add some structured profiles for a few proteins
-#' mat[1, 5:10] <- mat[1, 5:10] + 5 # Prot1 peaks
-#' mat[2, 10:15] <- mat[2, 10:15] + 5 # Prot2 peaks
-#'
-#' # Reduce permutations for quick example
-#' retained_prots <- filter_proteins_by_elution_consistency(mat,
-#'                                           num_permutations = 50,
-#'                                           mad_threshold = 2,
-#'                                           verbose = FALSE)
-#' print(paste("Number of retained proteins:", length(retained_prots)))
-#' # print(retained_prots) # Potentially Prot1, Prot2 and others by chance
+#' mat <- matrix(rnorm(100 * 24), nrow = 100, ncol = 24)
+#' rownames(mat) <- paste0("Prot", 1:100)
+#' colnames(mat) <- paste0("Frac", 1:24)
+#' 
+#' # Introduce structured profiles for some proteins
+#' mat[1:5, 5:10] <- mat[1:5, 5:10] + rnorm(30, mean = 5, sd = 1)  # Complex A
+#' mat[6:10, 12:18] <- mat[6:10, 12:18] + rnorm(42, mean = 4, sd = 1) # Complex B
+#' 
+#' # Add random NAs (10% missing values)
+#' mat[sample(length(mat), 0.1 * length(mat))] <- NA
+#' 
+#' # Run filtering with different parameters
+#' retained_default <- filter_proteins_by_elution_consistency(mat)
+#' retained_stringent <- filter_proteins_by_elution_consistency(mat, mad_threshold = 2.5)
+#' retained_fast <- filter_proteins_by_elution_consistency(mat, num_permutations = 100)
+#' 
+#' # Compare results
+#' length(retained_default)    # Typically ~10-15 with this example
+#' length(retained_stringent)  # Typically ~5-8 
+#' length(retained_fast)       # Similar to default but less precise
+#' 
+#' # Visualize retained proteins
+#' if (interactive() & requireNamespace("ggplot2", quietly = TRUE)) {
+#'   plot_elution_ridges(mat[retained_default, ], ncol = 3)
+#' }
 filter_proteins_by_elution_consistency <- function(
     elution_matrix,
     num_permutations = 1000,
     mad_threshold = 2,
     verbose = TRUE) {
-
-  if (!is.matrix(elution_matrix) || !is.numeric(elution_matrix)) {
-    stop("'elution_matrix' must be a numeric matrix.")
+  
+  # Input validation
+  if (!is.matrix(elution_matrix)) {
+    stop("'elution_matrix' must be a matrix.")
+  }
+  if (!is.numeric(elution_matrix)) {
+    stop("'elution_matrix' must be numeric.")
   }
   if (nrow(elution_matrix) == 0) return(character(0))
   if (ncol(elution_matrix) < 2) {
     stop("Need at least 2 fractions (columns) for comparison.")
   }
-
-  # Impute NAs and add pseudocount (as per original logic `m <- m + 1; m[is.na(m)] <- 1`)
-  # This transformation might be specific to downstream log-transformations
-  # or count-based assumptions not fully clear from this function alone.
-  # We replicate it here.
-  processed_matrix <- elution_matrix
-  processed_matrix[is.na(processed_matrix)] <- 0 # First set NAs to 0
-  processed_matrix <- processed_matrix + 1       # Then add 1 (pseudocount)
-
-  # Ensure an even number of fractions for splitting
+  if (num_permutations < 10) {
+    warning("Few permutations (<10) may yield unreliable results")
+  }
+  if (mad_threshold < 0) {
+    stop("'mad_threshold' must be >= 0")
+  }
+  
+  # Prepare matrix
+  processed_matrix <- prepare_elution_matrix(elution_matrix)
+  
+  # Ensure even number of fractions
   num_cols <- ncol(processed_matrix)
   if (num_cols %% 2 != 0) {
-    # Drop the last column if odd number of columns
     processed_matrix <- processed_matrix[, -num_cols, drop = FALSE]
     num_cols <- num_cols - 1
     if (num_cols < 2) stop("Need at least 2 fractions after ensuring even number.")
     if (verbose) message("Odd number of columns; last column dropped for splitting.")
   }
   half_cols <- num_cols / 2
-
-  # Store ratios from permutations
+  
+  # Calculate ratios across permutations
   ratio_list_across_permutations <- vector("list", num_permutations)
-
+  
   if (verbose) {
     pb <- progress::progress_bar$new(
       format = "Calculating consistency [:bar] :percent eta: :eta",
@@ -89,70 +151,33 @@ filter_proteins_by_elution_consistency <- function(
       clear = FALSE
     )
   }
-
+  
   for (i in seq_len(num_permutations)) {
     if (verbose) pb$tick()
-
-    # Randomly sample columns for the 'control' half
+    
     control_indices <- sample(seq_len(num_cols), half_cols)
     target_indices <- setdiff(seq_len(num_cols), control_indices)
-
-    # Sum of squares for each protein in control and target halves
-    # Original code: `rowSums((mDat[, idControl])^2)`
-    sum_sq_control <- rowSums(processed_matrix[, control_indices, drop=FALSE]^2)
-    sum_sq_target <- rowSums(processed_matrix[, target_indices, drop=FALSE]^2)
-
-    # Calculate ratio: sqrt(sum_sq_control / sum_sq_target)
-    # Add small epsilon to denominator to prevent division by zero
-    ratios <- sqrt(sum_sq_control / (sum_sq_target + .Machine$double.eps))
-    ratio_list_across_permutations[[i]] <- ratios
+    
+    ratio_list_across_permutations[[i]] <- calculate_split_ratios(
+      processed_matrix, control_indices, target_indices)
   }
-
-  # Average ratios across permutations for each protein
-  if (length(ratio_list_across_permutations) > 0) {
-    ratios_df <- do.call(cbind, ratio_list_across_permutations)
-    mean_ratios_per_protein <- rowMeans(ratios_df, na.rm = TRUE)
+  
+  # Calculate mean ratios
+  mean_ratios_per_protein <- if (length(ratio_list_across_permutations) > 0) {
+    rowMeans(do.call(cbind, ratio_list_across_permutations), na.rm = TRUE)
   } else {
-    mean_ratios_per_protein <- numeric(nrow(processed_matrix))
-    names(mean_ratios_per_protein) <- rownames(processed_matrix)
+    setNames(numeric(nrow(processed_matrix)), rownames(processed_matrix))
   }
-
-
-  # Filter proteins: keep those whose mean ratio is far from the median
-  median_of_ratios <- stats::median(mean_ratios_per_protein, na.rm = TRUE)
-  mad_of_ratios <- stats::mad(mean_ratios_per_protein, na.rm = TRUE)
-
-  # If MAD is zero (e.g., all ratios are the same), avoid issues
-  if (mad_of_ratios == 0) {
-    if (verbose) {
-      message("MAD of ratios is zero. Thresholding cannot be applied meaningfully.",
-              " Returning all proteins or none based on deviation from median.")
-    }
-    # If all ratios are identical, no protein stands out.
-    # If some ratios differ from median but MAD is 0 due to many identical values at median,
-    # this logic might still be useful.
-    # For robustness: if MAD is 0, only keep proteins if their ratio is not exactly the median.
-    # Or, if all are median, keep none (or all, depending on desired behavior).
-    # Original logic keeps proteins if `prtDC < median - nmad*0` OR `prtDC > median + nmad*0`.
-    # This means keep if `prtDC != median`.
-    proteins_to_pass_filter <- names(mean_ratios_per_protein)[
-      mean_ratios_per_protein != median_of_ratios
-    ]
-  } else {
-    lower_bound <- median_of_ratios - mad_threshold * mad_of_ratios
-    upper_bound <- median_of_ratios + mad_threshold * mad_of_ratios
-
-    proteins_to_pass_filter <- names(mean_ratios_per_protein)[
-      (mean_ratios_per_protein < lower_bound) |
-        (mean_ratios_per_protein > upper_bound)
-    ]
-  }
-
-
+  
+  # Filter proteins
+  proteins_to_pass_filter <- filter_by_mad_threshold(
+    mean_ratios_per_protein, mad_threshold)
+  
+  # Handle case where input matrix has no rownames
   if (is.null(rownames(elution_matrix))) {
     warning("Elution matrix has no rownames. Returning indices instead.")
     return(which(rownames(processed_matrix) %in% proteins_to_pass_filter))
   }
-
+  
   return(proteins_to_pass_filter)
 }

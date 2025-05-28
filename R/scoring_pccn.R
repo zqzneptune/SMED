@@ -1,21 +1,62 @@
 #' Score PPIs using Poisson Correlation Coefficient of Noise (PCCN)
 #'
-#' Calculates PCCN scores for potential protein-protein interactions (PPIs).
-#' This method involves adding Poisson noise to elution profiles, normalizing
-#' them compositionally, calculating Pearson correlations, and averaging these
-#' correlations over multiple replications. It's designed to find robust
-#' correlations in count-like data.
+#' Calculates robust Pearson correlation scores for potential protein-protein 
+#' interactions (PPIs) by adding Poisson noise to elution profiles and averaging 
+#' correlations across multiple replicates. This approach helps identify stable 
+#' co-elution patterns in count-like data while accounting for measurement noise.
+#'
+#' @details
+#' The PCCN method works through these key steps:
+#' \enumerate{
+#'   \item \strong{Noise Addition}: Adds Poisson noise to each value in the 
+#'   elution matrix (rpois) to simulate technical variability
+#'   \item \strong{Normalization}: Applies compositional normalization by:
+#'     \itemize{
+#'       \item Adding a small pseudocount (1/num_fractions) to avoid zeros
+#'       \item Normalizing each protein's profile to sum to 1 (relative abundance)
+#'     }
+#'   \item \strong{Correlation Calculation}: Computes Pearson correlation between 
+#'   all protein pairs on the noise-added, normalized data
+#'   \item \strong{Averaging}: Repeats steps 1-3 for multiple replicates and 
+#'   averages the correlation scores
+#' }
+#'
+#' \strong{Biological Interpretation}: Higher PCCN scores indicate proteins that:
+#' \itemize{
+#'   \item Co-elute consistently across fractions
+#'   \item Maintain correlation patterns despite noise
+#'   \item Are more likely to interact or be part of same complex
+#' }
+#' Scores range from -1 (perfect anti-correlation) to 1 (perfect correlation), 
+#' with values near 0 indicating no relationship.
+#'
+#' \strong{Comparison to Other Metrics}:
+#' \itemize{
+#'   \item More robust to noise than standard Pearson correlation
+#'   \item Better for count data than WCC (works with zeros)
+#'   \item Less sensitive to extreme values than MI
+#'   \item Captures linear relationships unlike Dice
+#' }
+#'
+#' \strong{Edge Cases Handled}:
+#' \itemize{
+#'   \item Proteins with constant values after normalization (var=0)
+#'   \item Negative input values (with warning)
+#'   \item Fewer than 2 proteins after filtering
+#'   \item NA values (imputed as 0 before calculation)
+#' }
 #'
 #' @param elution_matrix A numeric matrix where rows are proteins (named) and
 #'   columns are fractions. Values should ideally be counts or pseudo-counts.
 #'   Negative values will be problematic for `rpois`.
 #' @param min_fractions_present Integer, minimum number of fractions a protein
-#'   must be detected in. Passed to `filter_matrix_by_nonzero_fractions`.
-#'   Default is 2.
+#'   must be detected in. Higher values increase stringency but may reduce 
+#'   coverage. Default 2 provides balance.
 #' @param num_replicates Integer, number of replications for adding noise and
-#'   calculating correlations. Default is 10.
+#'   calculating correlations. More replicates increase stability but slow 
+#'   computation. Default 10 provides good balance.
 #' @param score_cutoff Numeric or `NULL`. If numeric, PPIs with PCCN score below
-#'   this cutoff are discarded. Applied *before* `top_n_ppi`. Default `NULL`.
+#'   this cutoff are discarded. Applied before `top_n_ppi`. Default `NULL`.
 #' @param top_n_ppi Integer or `NULL`. If an integer, the top N PPIs by PCCN
 #'   score (after cutoff) are returned. If `NULL` (default), all PPIs passing
 #'   the cutoff are returned.
@@ -23,13 +64,13 @@
 #'
 #' @return A data frame with columns:
 #'   \item{PPI}{Protein-protein interaction ("ProteinA~ProteinB").}
-#'   \item{pccn_score}{Averaged PCCN score.}
+#'   \item{pccn_score}{Averaged PCCN score (Pearson correlation with noise).}
 #'   Sorted by `pccn_score` in descending order.
 #' @export
 #' @importFrom stats cor rpois
 #' @importFrom utils txtProgressBar setTxtProgressBar
 #' @seealso \code{\link{filter_matrix_by_nonzero_fractions}},
-#'   \code{\link{generate_all_pairwise_ppi}}
+#'   \code{\link{generate_all_pairwise_ppi}}, \code{\link{score_ppi_by_pccn.Rd}}
 #' @examples
 #' set.seed(123)
 #' # Create count-like data
@@ -43,11 +84,11 @@
 #'                                  top_n_ppi = 3, verbose = FALSE)
 #' print(pccn_scores)
 score_ppi_by_pccn <- function(elution_matrix,
-                              min_fractions_present = 2,
-                              num_replicates = 10,
-                              score_cutoff = NULL,
-                              top_n_ppi = NULL,
-                              verbose = TRUE) {
+                             min_fractions_present = 2,
+                             num_replicates = 10,
+                             score_cutoff = NULL,
+                             top_n_ppi = NULL,
+                             verbose = TRUE) {
 
   if (!is.matrix(elution_matrix) || !is.numeric(elution_matrix)) {
     stop("'elution_matrix' must be a numeric matrix.")
@@ -103,8 +144,22 @@ score_ppi_by_pccn <- function(elution_matrix,
     # Calculate Pearson correlation (proteins are rows, so transpose)
     # pairwise.complete.obs handles potential NAs if any row becomes all same
     # after normalization (though unlikely with pseudocount)
-    cor_matrix_B <- suppressWarnings(
-      stats::cor(t(compositional_matrix_B), use = "pairwise.complete.obs")
+    # Check for constant rows that would cause correlation warnings
+    row_vars <- apply(compositional_matrix_B, 1, var, na.rm = TRUE)
+    if (any(row_vars == 0, na.rm = TRUE)) {
+      const_proteins <- rownames(compositional_matrix_B)[which(row_vars == 0)]
+      message("Some proteins have constant values after normalization (",
+              paste(const_proteins, collapse = ", "),
+              "). Their correlations will be NA.")
+    }
+
+    # Calculate correlations with explicit handling
+    cor_matrix_B <- tryCatch(
+      stats::cor(t(compositional_matrix_B), use = "pairwise.complete.obs"),
+      warning = function(w) {
+        message("Correlation calculation: ", w$message)
+        stats::cor(t(compositional_matrix_B), use = "pairwise.complete.obs")
+      }
     )
     cor_matrix_B[is.na(cor_matrix_B)] <- 0 # Replace NAs from cor if any
 

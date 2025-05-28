@@ -1,39 +1,90 @@
 #' Plot Multiple ROC Curves
 #'
-#' Plots one or more ROC curve objects (from the `pROC` package) on the same
-#' graph. Curves can be smoothed, and AUC values are displayed.
+#' Creates a composite plot of one or more Receiver Operating Characteristic (ROC) 
+#' curves from the `pROC` package. The plot includes:
+#' - Individual ROC curves with customizable colors
+#' - Area Under the Curve (AUC) values displayed in legend
+#' - Optional smoothing of ROC curves
+#' - Diagonal reference line (random classifier)
 #'
-#' @param roc_object_list A named list of ROC curve objects (class `roc` from
-#'   `pROC` package). Names are used in the legend.
-#' @param plot_title Character string for the main title of the plot.
-#' @param color_palette A vector of color strings to use for plotting the ROC
-#'   curves. If `NULL` (default), `RColorBrewer::brewer.pal` "Dark2" is used.
-#'   Length should be at least `length(roc_object_list)`.
-#' @param smooth_curves Logical, if `TRUE` (default), ROC curves are smoothed
-#'   using `pROC::smooth`.
-#' @param legend_position_x Numeric, x-coordinate for the top-left of the
-#'   legend text block (range 0-1). Default 0.55.
-#' @param legend_position_y Numeric, y-coordinate for the top-left of the
-#'   legend text block (range 0-1). Default 0.60.
-#' @param line_width Numeric, line width for ROC curves. Default 1.5.
+#' @section ROC Curve Interpretation:
+#' The ROC curve plots the true positive rate (sensitivity) against the false 
+#' positive rate (1-specificity) across different classification thresholds. 
+#' Points above the diagonal indicate better-than-random performance. The closer 
+#' the curve follows the left-hand border and top border, the more accurate the 
+#' test.
 #'
-#' @return Invisibly returns `NULL`. The function is called for its side
-#'   effect of plotting.
+#' @section AUC Calculation:
+#' The Area Under the Curve (AUC) is calculated using the trapezoidal rule as 
+#' implemented in `pROC::auc()`. AUC ranges from 0.5 (random classifier) to 1 
+#' (perfect classifier). AUC represents the probability that the classifier will 
+#' rank a randomly chosen positive instance higher than a randomly chosen 
+#' negative one.
+#'
+#' @param roc_object_list A named list of ROC curve objects (class `roc` from 
+#'   `pROC` package). Names are used in the legend. Each ROC object should be 
+#'   created using `pROC::roc()` with response and predictor vectors.
+#' @param plot_title Character string for the main title of the plot (default: 
+#'   "ROC Curves").
+#' @param color_palette A vector of color strings to use for plotting the ROC 
+#'   curves. If `NULL` (default), uses `RColorBrewer::brewer.pal` "Dark2" for 
+#'   up to 8 curves, then falls back to `rainbow()`. Length should match number 
+#'   of curves.
+#' @param smooth_curves Logical indicating whether to smooth ROC curves using 
+#'   `pROC::smooth()` with density method (default: TRUE). Smoothing can help 
+#'   visualize the general trend when curves appear jagged.
+#' @param legend_position_x Numeric x-coordinate for legend position (range 
+#'   0-1, default: 0.55).
+#' @param legend_position_y Numeric y-coordinate for legend position (range 
+#'   0-1, default: 0.60).
+#' @param line_width Numeric line width for ROC curves (default: 1.5).
+#'
+#' @section Parameter Effects:
+#' - `smooth_curves`: When TRUE, applies kernel smoothing which can make curves 
+#'   appear more regular but may obscure small-scale variations
+#' - `legend_position`: Adjust these to avoid overlap with curves in crowded plots
+#' - `line_width`: Thicker lines improve visibility in presentations/publications
+#'
+#' @return Invisibly returns `NULL`. The function is called for its side effect 
+#'   of generating a plot with:
+#'   - ROC curves for each input
+#'   - AUC values displayed in legend
+#'   - Diagonal reference line
+#'   - Properly labeled axes
+#'
 #' @export
 #' @importFrom pROC plot.roc lines.roc auc smooth
 #' @importFrom RColorBrewer brewer.pal
 #' @importFrom graphics par text
+#' @seealso \code{\link{plot_multiple_roc}} (man page) for additional examples
 #' @examples
 #' if (requireNamespace("pROC", quietly = TRUE) &&
 #'     requireNamespace("RColorBrewer", quietly = TRUE)) {
-#'   # Create dummy ROC objects
+#'   # Create example ROC objects
 #'   set.seed(123)
-#'   roc1 <- pROC::roc(response = rbinom(50,1,0.5), predictor = rnorm(50), quiet=TRUE)
-#'   roc2 <- pROC::roc(response = rbinom(50,1,0.7), predictor = rnorm(50,0.5), quiet=TRUE)
-#'   roc_list <- list(MethodA = roc1, MethodB = roc2)
-#'
-#'   # Plot them
-#'   # plot_multiple_roc(roc_list, plot_title = "Comparison of Methods")
+#'   response <- rbinom(100, 1, 0.5)
+#'   pred1 <- rnorm(100)
+#'   pred2 <- rnorm(100, mean = ifelse(response == 1, 0.5, 0))
+#'   pred3 <- rnorm(100, mean = ifelse(response == 1, 1, 0))
+#'   
+#'   roc1 <- pROC::roc(response, pred1, quiet = TRUE)
+#'   roc2 <- pROC::roc(response, pred2, quiet = TRUE)
+#'   roc3 <- pROC::roc(response, pred3, quiet = TRUE)
+#'   
+#'   # Basic plot with default settings
+#'   plot_multiple_roc(list(Random = roc1, Moderate = roc2, Strong = roc3),
+#'                    "Classifier Comparison")
+#'                    
+#'   # Customized plot with manual colors and no smoothing
+#'   plot_multiple_roc(
+#'     list(Random = roc1, Moderate = roc2, Strong = roc3),
+#'     plot_title = "Customized ROC Plot",
+#'     color_palette = c("blue", "green", "red"),
+#'     smooth_curves = FALSE,
+#'     legend_position_x = 0.6,
+#'     legend_position_y = 0.5,
+#'     line_width = 2
+#'   )
 #' }
 plot_multiple_roc <- function(
     roc_object_list,

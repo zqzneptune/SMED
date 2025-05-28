@@ -2,39 +2,70 @@
 % Please edit documentation in R/complex_merging_extractors.R
 \name{extract_all_protein_lists}
 \alias{extract_all_protein_lists}
-\title{Extract Simplified List of All Complexes (Proteins Only)}
+\title{Extract Simplified Protein Lists from Complexes}
 \usage{
 extract_all_protein_lists(merging_results, include_support_in_name = FALSE)
 }
 \arguments{
-\item{merging_results}{A list of `ProteinComplex` S3 objects.}
+\item{merging_results}{A list of `ProteinComplex` S3 objects with:
+- `proteins` field containing protein members
+- `original_name` identifying the complex
+- `support_level` indicating merging status}
 
-\item{include_support_in_name}{Logical. If `TRUE`, the names of the
-returned list elements will be a combination of the complex's original
-name and its support level (e.g., "ComplexName_both_techniques").
-This helps ensure unique names. Default `FALSE`.}
+\item{include_support_in_name}{Logical indicating whether to append support
+level to complex names (helps distinguish merged vs specific complexes).
+Default `FALSE`.}
 }
 \value{
-A named list where each name is a complex identifier and each value
-  is a character vector of protein IDs for that complex.
+A named list where each element is a character vector of protein IDs
+  and names are either original complex names or names with support level
+  appended. Guaranteed to have unique names.
 }
 \description{
-Converts the list of `ProteinComplex` S3 objects (from
-`merge_protein_complexes`) into a simpler named list. Each element of the
-output list is a character vector of protein IDs for a complex, and the
-names are derived from the complex's `original_name`.
+Converts protein complexes into simplified named lists of protein members.
+Optimized for downstream analyses requiring simple protein-complex mappings.
 }
+\section{Biological Relevance}{
+
+The simplified format is essential for:
+1. Enrichment analyses (GO, pathway, etc.)
+2. Network visualization tools
+3. Comparing complex compositions across conditions
+}
+
+\section{Performance}{
+
+Time complexity: O(n) where n is number of input complexes. Creates new
+list objects so memory usage scales with input size.
+}
+
 \examples{
-# Assuming 'results' is output from merge_protein_complexes example
-# simplified_list <- extract_all_protein_lists(results)
-# if (length(simplified_list) > 0) {
-#   print(names(simplified_list)[1])
-#   print(simplified_list[[1]])
-# }
-#
-# simplified_list_detailed_names <- extract_all_protein_lists(results,
-#                                          include_support_in_name = TRUE)
+\dontrun{
+data(load_cofrac_293NE12_hcw)
+data(load_cofrac_HeLaCE12_tcs)
+
+merged_results <- merge_protein_complexes(
+  list1 = load_cofrac_293NE12_hcw(),
+  list2 = load_cofrac_HeLaCE12_tcs(),
+  list1_id = "HCW",
+  list2_id = "TCS"
+)
+
+# Basic protein list extraction
+protein_lists <- extract_all_protein_lists(merged_results)
+
+# With support level in names
+detailed_lists <- extract_all_protein_lists(merged_results,
+                                          include_support_in_name = TRUE)
+
+# Quality control: Check for empty complexes
+if (any(lengths(protein_lists) == 0)) {
+  warning("Empty complexes detected - check input data quality")
+}
+}
 }
 \seealso{
-\code{\link{merge_protein_complexes}}
+\code{\link{merge_protein_complexes}},
+  \code{\link{get_merged_complexes}},
+  \code{\link{get_technique_specific_complexes}}
 }

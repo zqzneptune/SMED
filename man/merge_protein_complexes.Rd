@@ -23,64 +23,90 @@ merge_protein_complexes(
 }
 \arguments{
 \item{raw_list1}{A list where each element is a character vector of protein
-IDs, representing complexes from the first source/technique.
-Can be named; if not, default names will be generated.}
+IDs, representing complexes from the first technique. Can be named; if not,
+default names will be generated (e.g., "Technique1_Cpx1").}
 
-\item{raw_list2}{A list similar to `raw_list1` for the second
-source/technique.}
+\item{raw_list2}{A list similar to `raw_list1` for the second technique.}
 
-\item{list1_id}{Character string, an identifier for `raw_list1` (e.g.,
-"AP-MS"). Default is "Technique1".}
+\item{list1_id}{Character string identifier for `raw_list1` (e.g., "AP-MS").
+Used in naming and reporting. Default is "Technique1".}
 
-\item{list2_id}{Character string, an identifier for `raw_list2` (e.g.,
-"Co-Frac"). Default is "Technique2".}
+\item{list2_id}{Character string identifier for `raw_list2`. Default "Technique2".}
 
-\item{list1_quality_score}{Numeric value between 0 and 1, representing the
-overall quality or confidence in `raw_list1` (1 is best). Default is 1.0.}
+\item{list1_quality_score}{Numeric (0-1) representing overall confidence in
+`raw_list1` (1=highest). Affects final complex scores. Default 1.0.}
 
-\item{list2_quality_score}{Numeric value (0-1) for `raw_list2`.
-Default is 1.0.}
+\item{list2_quality_score}{Numeric (0-1) for `raw_list2`. Default 1.0.}
 
-\item{redundancy_threshold}{Numeric (0-1), similarity threshold for
-removing redundant complexes *within* each list. Default is 0.9.}
+\item{redundancy_threshold}{Numeric (0-1), similarity threshold for removing
+redundant complexes *within* each list. Default 0.9 (very conservative).}
 
-\item{similarity_method_intra}{Character, method for intra-list similarity.
-Options: "jaccard" (default), "simpson", "dice".}
+\item{similarity_method_intra}{Character, method for intra-list similarity:
+- "jaccard": Jaccard index (intersection/union) - default, balanced
+- "simpson": Simpson coefficient (intersection/smaller set) - sensitive
+- "dice": Dice coefficient (2*intersection/sum) - emphasizes overlap}
 
 \item{merge_similarity_threshold}{Numeric (0-1), similarity threshold for
-merging complexes *between* the two lists. Default is 0.7.}
+merging complexes *between* techniques. Default 0.7 (moderate stringency).}
 
 \item{similarity_method_inter}{Character, method for inter-list similarity.
-Options: "simpson" (default), "dice", "jaccard".}
+Same options as `similarity_method_intra`. Default "simpson".}
 
-\item{validation_min_size}{Integer, minimum number of proteins for a complex
-to be retained after merging/validation. Default is 2.}
+\item{validation_min_size}{Integer, minimum proteins for a valid complex.
+Default 2 (allowing dimers and larger).}
 
-\item{validation_max_size}{Integer, maximum number of proteins. Default is 50.}
+\item{validation_max_size}{Integer, maximum proteins. Default 50 (avoids
+non-specific aggregates).}
 
-\item{validation_bonus_merged}{Numeric, a multiplicative bonus applied to the
-score of complexes supported by both techniques. Default 1.5.}
+\item{validation_bonus_merged}{Numeric, multiplier for complexes supported by
+both techniques (reflects higher confidence). Default 1.5.}
 
-\item{verbose}{Logical, if `TRUE`, progress messages will be printed.
-Default `TRUE`.}
+\item{verbose}{Logical, if `TRUE` prints progress messages. Default `TRUE`.}
 }
 \value{
-A list of `ProteinComplex` S3 objects (see
-  \code{\link{ProteinComplex-S3}} for structure). This list contains all
-  complexes (merged and technique-specific) that passed validation,
-  ranked by their final score.
+A list of `ProteinComplex` S3 objects (see \code{\link{ProteinComplex-S3}}),
+  containing all validated complexes ranked by final score (highest first).
+  Each complex includes:
+  - proteins: Character vector of constituent proteins
+  - original_name: Original complex name(s)
+  - source_list_id: Technique ID(s)
+  - quality_score: Combined quality metric
+  - support_level: "both_techniques" or "[technique]_only"
+  - merge_similarity: Similarity score (for merged complexes)
+  - final_score: Composite score used for ranking
 }
 \description{
-This is the main function to merge protein complex lists derived from two
-different experimental techniques or datasets. The process involves:
-1. Initial conversion of raw lists to internal S3 objects.
-2. Intra-list redundancy removal within each list based on a similarity
-   threshold.
-3. Cross-list merging of similar complexes from the two cleaned lists.
-4. Addition of non-merged (technique-specific) complexes.
-5. Validation (e.g., size filtering) and ranking of all complexes.
+Implements a comprehensive pipeline for merging protein complex predictions from
+two different experimental techniques (e.g., AP-MS and Co-Frac). The merging
+process follows these key steps:
+}
+\details{
+1. **Input Preparation**: Converts raw lists to standardized S3 objects with
+   metadata including technique ID and quality score.
+2. **Intra-List Cleaning**: Removes redundant complexes within each technique
+   using specified similarity threshold and method.
+3. **Cross-Technique Merging**: Identifies and merges similar complexes across
+   techniques using pairwise similarity comparisons.
+4. **Validation & Ranking**: Filters by size and applies scoring, with bonus
+   for complexes supported by both techniques.
+
+**Biological Rationale**: 
+- The merging approach accounts for technique-specific biases and coverage
+- Similarity thresholds are based on empirical studies of complex conservation
+- The scoring system favors complexes with cross-technique support
+
+**Algorithm Details**:
+- Similarity metrics (Jaccard, Simpson, Dice) compare protein composition
+- Greedy algorithm ensures each complex is merged at most once
+- Validation includes size filtering and quality-based ranking
+
+**Performance Characteristics**:
+- Time complexity: O(n*m) where n and m are complex counts in each list
+- Memory usage: Moderate (stores similarity matrices during processing)
+- Parallelization: Not currently implemented (future enhancement)
 }
 \examples{
+# Basic example with small synthetic datasets
 set.seed(123)
 list1_data <- list(
   CpxA_t1 = c("P1", "P2", "P3", "P4"),
@@ -97,16 +123,27 @@ results <- merge_protein_complexes(
   raw_list1 = list1_data, raw_list2 = list2_data,
   list1_id = "APMS", list2_id = "CoFrac",
   list1_quality_score = 0.9, list2_quality_score = 0.8,
-  merge_similarity_threshold = 0.5, # Lowered for more merges in example
+  merge_similarity_threshold = 0.5, # Lowered for demo
   similarity_method_inter = "simpson",
   verbose = FALSE
 )
-cat("Total complexes in results:", length(results), "\n")
-# Explore results using extractor functions (see their examples)
+
+# Real-world usage with Havugimana datasets
+\dontrun{
+data(load_cofrac_HeLaCE12_tcs) # Technique 1: Co-Frac
+data(load_pred_cpx_havugimana)  # Technique 2: AP-MS
+
+merged <- merge_protein_complexes(
+  raw_list1 = load_cofrac_HeLaCE12_tcs(),
+  raw_list2 = load_pred_cpx_havugimana(),
+  list1_id = "CoFrac", list2_id = "APMS",
+  list1_quality_score = 0.8, list2_quality_score = 0.7
+)
+}
 }
 \seealso{
-\code{\link{get_merged_complexes}},
-  \code{\link{get_technique_specific_complexes}},
-  \code{\link{get_all_complex_summary}},
-  \code{\link{extract_all_protein_lists}}
+\code{\link{get_merged_complexes}} for extracting only merged complexes,
+\code{\link{get_technique_specific_complexes}} for technique-specific ones,
+\code{\link{get_all_complex_summary}} for comprehensive results analysis,
+\code{\link{extract_all_protein_lists}} for protein-level outputs
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/machine_learning.R
 \name{integrate_ppi_scores_and_train}
 \alias{integrate_ppi_scores_and_train}
-\title{Train a Single Machine Learning Model and Predict Probabilities}
+\title{Train a Single Machine Learning Model for PPI Prediction}
 \usage{
 integrate_ppi_scores_and_train(
   raw_score_df,
@@ -15,33 +15,85 @@ integrate_ppi_scores_and_train(
 )
 }
 \arguments{
-\item{raw_score_df}{A data frame or matrix of feature scores. Rows are
-observations (e.g., PPIs), columns are features.}
+\item{raw_score_df}{Feature matrix (rows: PPIs, columns: scores)}
 
-\item{response_vector}{A factor vector ("Y", "N") or numeric (0, 1)
-representing the response variable. Must have the same number of
-observations as `raw_score_df`. NAs are allowed and will be removed
-before training.}
+\item{response_vector}{Binary response (factor or numeric 0/1)}
 
-\item{model_method}{Character string specifying the `caret` model method
-(e.g., "rf", "glmnet", "svmRadial").}
+\item{model_method}{caret model method (e.g. "rf", "glmnet", "svmRadial")}
 
-\item{num_cv_folds}{Integer, number of folds for cross-validation. Default 5.}
+\item{num_cv_folds}{Cross-validation folds (2-10, default 5)}
 
-\item{num_cv_repeats}{Integer, number of repeats for cross-validation.
-Default 1.}
+\item{num_cv_repeats}{CV repeats (1-10, default 1)}
 
-\item{seed}{Integer, for reproducibility. Default 100.}
+\item{seed}{Random seed (default 100)}
 
-\item{num_cores}{Integer, number of cores for parallel model training.
-Default is 2. Uses `doParallel` with `makePSOCKcluster`.}
+\item{num_cores}{Parallel cores (1-8, default 2)}
 }
 \value{
-A numeric vector of predicted probabilities for the "positive"
-  class (assumed to be the second level of the factor response, e.g., "Y").
+Numeric vector of predicted probabilities for positive class
 }
 \description{
-Trains a specified machine learning model using `caret` on provided scores
-and responses. It handles data imputation and preprocessing.
-This function is suitable for training one model at a time.
+Trains a specified ML model using caret with:
+- Repeated k-fold cross-validation
+- AUC optimization
+- Parallel processing support
+- Automated preprocessing
+}
+\section{Machine Learning Methodology}{
+
+This function implements a standardized workflow for training binary classifiers:
+1. Data preprocessing (imputation and scaling)
+2. Model training with hyperparameter tuning
+3. Performance evaluation using ROC AUC
+
+Supported model types include:
+- Random Forest ("rf")
+- Regularized Logistic Regression ("glmnet") 
+- Support Vector Machines ("svmRadial")
+- Gradient Boosting Machines ("gbm")
+}
+
+\section{Model Training Process}{
+
+The training process involves:
+1. Data splitting via stratified k-fold CV
+2. Hyperparameter grid search
+3. Parallelized model fitting
+4. Performance evaluation using:
+   - ROC AUC (primary metric)
+   - Sensitivity/Specificity
+   - Precision/Recall
+}
+
+\section{Feature Importance}{
+
+Feature importance is calculated differently per model type:
+- Tree-based models: Mean decrease in accuracy/Gini impurity
+- Linear models: Standardized coefficient magnitudes
+- SVM models: Weight magnitudes from the decision boundary
+}
+
+\section{Performance Evaluation}{
+
+Models are evaluated using:
+- Cross-validated ROC AUC (primary metric)
+- Sensitivity/Specificity at optimal threshold
+- Precision-Recall curves
+- Calibration curves
+}
+
+\examples{
+# Example with random forest
+data <- data.frame(score1=rnorm(100), score2=rnorm(100))
+response <- factor(sample(c("Y","N"), 100, replace=TRUE))
+probs <- integrate_ppi_scores_and_train(
+  data, response, "rf", num_cv_folds=3, num_cores=1
+)
+
+# Get feature importance (for supported models)
+# model <- getModelInfo("rf")[[1]]
+# varImp(model)
+}
+\seealso{
+\code{\link{train_ensemble_ppi_models}} for ensemble approach
 }

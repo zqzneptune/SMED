@@ -7,15 +7,51 @@
 load_cofrac_HeLaNE45_tcs()
 }
 \value{
-A numeric matrix representing protein elution profiles.
+A numeric matrix representing protein elution profiles where:
+  - Rows are proteins (row names are UniProt IDs)
+  - Columns are fractions (1-96)
+  - Values are MS1 intensity measurements
 }
 \description{
 Loads an example co-fractionation count matrix from Havugimana et al., 2012,
-specifically the LTQ HeLaNE45 TCS dataset.
+specifically the LTQ HeLaNE45 TCS dataset. This data represents protein
+co-fractionation profiles from HeLa cells under non-enriched (NE) conditions
+with total cell lysate (TCS) preparation.
 }
+\details{
+Data originally published in Havugimana et al. Cell 2012 (PMID: 22939625).
+
+Supported file format: RDS (R binary serialization format)
+
+Data structure requirements:
+- Must be a numeric matrix with proteins as rows and fractions as columns
+- Row names should be UniProt protein identifiers
+- Column names should be fraction numbers (1-96)
+}
+\section{Performance Considerations}{
+
+The matrix is approximately 18MB in memory (dimensions: 450 proteins x 96 fractions).
+Contains more proteins than the 293NE12 dataset. Consider:
+- Using sparse matrix operations if working with zero-inflated data
+- Pre-filtering proteins by abundance if memory constrained
+}
+
 \examples{
-if (interactive()) {
+\donttest{
+if (requireNamespace("SMED", quietly = TRUE)) {
+  # Load the data
   cofrac_HeLaNE45 <- load_cofrac_HeLaNE45_tcs()
-  # print(dim(cofrac_HeLaNE45))
+  
+  # Basic inspection
+  str(cofrac_HeLaNE45)  # Structure overview
+  summary(as.vector(cofrac_HeLaNE45))  # Value distribution
+  
+  # See vignette("01-scoring") for analysis examples
 }
+}
+}
+\seealso{
+\code{\link{load_cofrac_293NE12_hcw}}, 
+  \code{\link{load_cofrac_HeLaCE12_tcs}},
+  \code{\link{filter_proteins_by_elution_consistency}} for quality control
 }

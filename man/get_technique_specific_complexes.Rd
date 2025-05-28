@@ -2,33 +2,70 @@
 % Please edit documentation in R/complex_merging_extractors.R
 \name{get_technique_specific_complexes}
 \alias{get_technique_specific_complexes}
-\title{Extract Technique-Specific Complexes from Merging Results}
+\title{Extract Technique-Specific Protein Complexes}
 \usage{
 get_technique_specific_complexes(merging_results, technique_id)
 }
 \arguments{
 \item{merging_results}{A list of `ProteinComplex` S3 objects, typically the
-output from `merge_protein_complexes`.}
+output from `merge_protein_complexes`. Each complex must have:
+- `support_level` field indicating technique specificity
+- `source_list_id` identifying the original technique}
 
-\item{technique_id}{Character string, the identifier of the technique/source
-list (e.g., "APMS", "Technique1") for which to extract specific complexes.
-This ID should match one of the `list1_id` or `list2_id` arguments
-used when calling `merge_protein_complexes`.}
+\item{technique_id}{Character string identifying the technique/source list
+(e.g., "APMS", "HCW", "TCS"). Must match one of the `list1_id` or `list2_id`
+arguments used in `merge_protein_complexes`.}
 }
 \value{
 A list containing only the `ProteinComplex` S3 objects specific to
-  the specified technique. Returns an empty list if no such complexes exist
-  or if the `technique_id` is not found among specific complexes.
+  the specified technique (with `support_level = "<technique_id>_only"`).
+  Returns an empty list if no such complexes exist or if invalid technique_id.
 }
 \description{
-Filters the output of `merge_protein_complexes` to retrieve complexes
-that are specific to a single technique/source list.
+Filters the output of `merge_protein_complexes` to retrieve complexes that are
+specific to a single experimental technique. These represent technique-specific
+findings that may include both true biological complexes unique to that 
+technique and potential false positives.
 }
+\section{Biological Relevance}{
+
+Technique-specific complexes can reveal:
+1. Biological complexes uniquely present in certain conditions/cell types
+2. Technique-specific artifacts that require orthogonal validation
+3. Differences in complex composition detection between techniques
+}
+
+\section{Performance}{
+
+Time complexity: O(n) where n is number of input complexes. Memory efficient
+as it only returns references to existing objects without copying data.
+}
+
 \examples{
-# Assuming 'results' is output from merge_protein_complexes example
-# apms_specific <- get_technique_specific_complexes(results, "APMS")
-# cat("Number of APMS-specific complexes:", length(apms_specific), "\n")
+\dontrun{
+# Using Havugimana et al. 2012 data
+data(load_cofrac_293NE12_hcw)
+data(load_cofrac_HeLaCE12_tcs)
+
+merged_results <- merge_protein_complexes(
+  list1 = load_cofrac_293NE12_hcw(),
+  list2 = load_cofrac_HeLaCE12_tcs(),
+  list1_id = "HCW",
+  list2_id = "TCS"
+)
+
+# Extract HCW-specific complexes
+hcw_specific <- get_technique_specific_complexes(merged_results, "HCW")
+
+# Quality control: Check if specific complexes make biological sense
+if (length(hcw_specific) > 100) {
+  message("Large number of technique-specific complexes -",
+          " consider validating with orthogonal data")
+}
+}
 }
 \seealso{
-\code{\link{merge_protein_complexes}}
+\code{\link{merge_protein_complexes}}, 
+  \code{\link{get_merged_complexes}},
+  \code{\link{extract_all_protein_lists}}
 }

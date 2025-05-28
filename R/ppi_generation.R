@@ -1,19 +1,38 @@
 #' Generate All Possible Pairwise PPIs from a Protein Set
 #'
-#' Creates a data frame of all unique pairwise protein-protein interactions (PPIs)
-#' from a given vector of protein identifiers. Interactions are represented as
-#' "ProteinA~ProteinB" where ProteinA is lexicographically smaller than ProteinB.
+#' Creates a comprehensive data frame of all unique pairwise protein-protein 
+#' interactions (PPIs) from a given vector of protein identifiers using 
+#' combinatorial generation. This serves as the foundation for many PPI analysis
+#' workflows.
 #'
-#' @param protein_vector A character vector of protein identifiers.
+#' @details
+#' Algorithm:
+#' 1. Input proteins are deduplicated and sorted lexicographically
+#' 2. All unique pairwise combinations (n choose 2) are generated
+#' 3. Each interaction is represented as "ProteinA~ProteinB" where ProteinA is 
+#'    lexicographically smaller than ProteinB to ensure consistent representation
+#'    of bidirectional interactions
+#'
+#' Biological Considerations:
+#' - Assumes all input proteins are from the same organism/species
+#' - No filtering is applied - all possible pairs are generated regardless of
+#'   biological plausibility
+#' - Protein identifiers should be consistent (e.g., all UniProt IDs or all gene symbols)
+#'
+#' @param protein_vector A character vector of protein identifiers. Must be 
+#'   non-missing and coercible to character. Duplicates are automatically removed.
 #'
 #' @return A data frame with columns:
-#'   \item{InteractorA}{The first protein in the pair (lexicographically smaller).}
-#'   \item{InteractorB}{The second protein in the pair.}
-#'   \item{PPI}{A string representing the interaction (e.g., "ProteinA~ProteinB").}
+#'   \item{InteractorA}{The first protein in the pair (lexicographically smaller)}
+#'   \item{InteractorB}{The second protein in the pair}
+#'   \item{PPI}{A string representing the interaction (e.g., "ProteinA~ProteinB")}
 #'   Returns an empty data frame with these columns if fewer than 2 proteins
 #'   are provided.
+#'
 #' @export
 #' @importFrom RcppAlgos comboGeneral
+#' @seealso \code{\link{generate_reference_ppi_sets}} for generating TP/TN PPIs,
+#'   \code{\link{generate_all_pairwise_ppi}} (man page) for additional examples
 #' @examples
 #' proteins <- c("ProteinC", "ProteinA", "ProteinB")
 #' ppi_df <- generate_all_pairwise_ppi(proteins)
@@ -59,33 +78,47 @@ generate_all_pairwise_ppi <- function(protein_vector) {
 
 #' Generate True Positive and True Negative PPIs from Reference Complexes
 #'
-#' From a list of reference protein complexes, this function derives:
-#' 1. True Positive (TP) PPIs: All pairwise interactions occurring within
-#'    any of the reference complexes.
-#' 2. True Negative (TN) PPIs: All other possible pairwise interactions between
-#'    proteins present in the reference complexes that do *not* occur within
-#'    any single complex. (This assumes a "closed world" for TNs based on the
-#'    provided complexes).
+#' Derives gold-standard interaction sets from known complexes by:
+#' 1. True Positives (TP): All pairwise interactions within complexes
+#' 2. True Negatives (TN): All other possible interactions between complex members
+#'
+#' @details
+#' Algorithm:
+#' 1. Collect all unique proteins from reference complexes
+#' 2. Generate all possible pairwise interactions (universe)
+#' 3. Extract TP PPIs as within-complex interactions
+#' 4. Define TN PPIs as universe minus TP PPIs
+#'
+#' Biological Considerations:
+#' - TP definition assumes all within-complex interactions are true
+#' - TN definition assumes absence from complexes implies non-interaction
+#'   (strong "closed world" assumption)
+#' - Complex quality directly impacts result reliability
+#' - Protein identifiers must be consistent across complexes
 #'
 #' @param reference_complex_list A list where each element is a character
-#'   vector of protein identifiers representing a known complex.
+#'   vector of protein identifiers representing a known complex. Each complex
+#'   should contain at least 2 proteins to generate meaningful PPIs.
 #'
 #' @return A list containing two data frames:
-#'   \item{TP}{A data frame of True Positive PPIs with columns `InteractorA`,
-#'     `InteractorB`, and `PPI`.}
-#'   \item{TN}{A data frame of True Negative PPIs with the same columns.}
+#'   \item{TP}{True Positive PPIs (within-complex interactions)}
+#'   \item{TN}{True Negative PPIs (between but not within complexes)}
+#'   Both have columns `InteractorA`, `InteractorB`, and `PPI`
+#'
 #' @export
 #' @importFrom RcppAlgos comboGeneral
+#' @seealso \code{\link{generate_all_pairwise_ppi}} for base PPI generation,
+#'   \code{\link{generate_reference_ppi_sets}} (man page) for more examples
 #' @examples
 #' ref_complexes <- list(
-#'   cpx1 = c("A", "B", "C"),
-#'   cpx2 = c("C", "D")
+#'   cpx1 = c("A", "B", "C"), # A complex with 3 proteins
+#'   cpx2 = c("C", "D")       # A binary interaction
 #' )
 #' ppi_sets <- generate_reference_ppi_sets(ref_complexes)
 #' print("True Positives (TP):")
-#' print(ppi_sets$TP)
+#' print(ppi_sets$TP)  # A-B, A-C, B-C from cpx1; C-D from cpx2
 #' print("True Negatives (TN):")
-#' print(ppi_sets$TN)
+#' print(ppi_sets$TN)  # All other possible pairs (A-D, B-D)
 generate_reference_ppi_sets <- function(reference_complex_list) {
   if (!is.list(reference_complex_list)) {
     stop("'reference_complex_list' must be a list.")

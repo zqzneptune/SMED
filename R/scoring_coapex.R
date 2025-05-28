@@ -4,8 +4,38 @@
 #' based on the proximity of their peak elution fractions in a chromatography
 #' experiment. Proteins with closer apex fractions receive higher scores.
 #'
+#' @details
+#' The co-apex scoring algorithm works as follows:
+#' 1. For each protein, identify the fraction(s) with maximum intensity (apex)
+#' 2. If a protein has two maxima within `max_apex_spread` fractions, average them
+#' 3. Calculate absolute differences in apex fractions for all protein pairs
+#' 4. Normalize differences to 0-1 scale where:
+#'    - 1 = proteins share identical apex fraction(s)
+#'    - 0 = proteins have maximum possible apex difference
+#' 
+#' Mathematical formulation:
+#' For proteins A and B with apex fractions f_A and f_B:
+#' raw_score = |f_A - f_B|
+#' normalized_score = (max_diff - raw_score) / (max_diff - min_diff)
+#' where max_diff and min_diff are the maximum and minimum differences observed
+#' across all protein pairs in the dataset.
+#'
+#' Performance characteristics:
+#' - Time complexity: O(n^2) where n is number of proteins (due to pairwise comparisons)
+#' - Memory usage: Scales with number of PPIs generated (n*(n-1)/2 pairs)
+#' - Handles edge cases:
+#'   - Proteins with identical apexes (score = 1)
+#'   - Proteins with no detectable apex (excluded)
+#'   - All proteins having same apex difference (special normalization)
+#'
+#' Biological interpretation:
+#' Proteins that co-elute in the same fractions are more likely to be part of
+#' the same protein complex. This scoring method quantifies that likelihood
+#' based on chromatographic co-elution patterns.
+#'
 #' @param elution_matrix A numeric matrix where rows are proteins (named) and
-#'   columns are fractions.
+#'   columns are fractions. Must contain at least 2 proteins to calculate scores.
+#'   Missing values (NA) are treated as 0 intensity for apex calculation.
 #' @param min_fractions_present Integer, minimum number of fractions a protein
 #'   must be detected in to be considered. Passed to
 #'   `filter_matrix_by_nonzero_fractions`. Default is 0 (no pre-filtering by
@@ -22,7 +52,8 @@
 #' @return A data frame with columns:
 #'   \item{PPI}{Protein-protein interaction identifier ("ProteinA~ProteinB").}
 #'   \item{norm_coapex_score}{Normalized co-apex score (0-1 scale), where
-#'     higher scores indicate closer apexes.}
+#'     1 = identical apex fractions, 0 = maximum observed difference.
+#'     Higher scores indicate closer apexes.}
 #'   The data frame is sorted by `norm_coapex_score` in descending order.
 #' @export
 #' @seealso \code{\link{filter_matrix_by_nonzero_fractions}},
@@ -37,12 +68,17 @@
 #' mat["P3", 8] <- 7; mat["P4", 2] <- 4      # P3, P4 distant
 #' mat["P1",1] <- 1; mat["P2",1] <- 1; mat["P3",1] <- 1; mat["P4",1] <- 1 # min_fractions
 #'
+#' # Calculate co-apex scores
 #' coapex_scores <- score_ppi_by_coapex(mat, min_fractions_present = 1, top_n_ppi = 5)
 #' print(coapex_scores)
+#' 
+#' # Interpretation of example results:
+#' # P1~P2 has highest score (1.0) since they share apex at fraction 4
+#' # P3~P4 has lowest score since their apexes are farthest apart (fractions 8 vs 2)
 score_ppi_by_coapex <- function(elution_matrix,
-                                min_fractions_present = 0,
-                                max_apex_spread = 2,
-                                top_n_ppi = NULL) {
+                              min_fractions_present = 0,
+                              max_apex_spread = 2,
+                              top_n_ppi = NULL) {
 
   if (!is.matrix(elution_matrix) || !is.numeric(elution_matrix)) {
     stop("'elution_matrix' must be a numeric matrix.")
@@ -109,7 +145,7 @@ score_ppi_by_coapex <- function(elution_matrix,
 
   # Calculate absolute differences in apex fractions for these PPIs
   apex_diffs <- abs(valid_apexes[pairwise_ppi_df$InteractorA] -
-                      valid_apexes[pairwise_ppi_df$InteractorB])
+                    valid_apexes[pairwise_ppi_df$InteractorB])
 
   # Normalize co-apex scores (0-1, higher is better)
   # Score = (max_diff - diff) / (max_diff - min_diff)

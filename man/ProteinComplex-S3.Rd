@@ -4,44 +4,43 @@
 \alias{ProteinComplex-S3}
 \title{ProteinComplex S3 Object Structure}
 \description{
-This documentation describes the internal structure of a `ProteinComplex` S3
-object used within the complex merging functions. Users typically do not
-need to interact with this structure directly but should use the provided
-merging and accessor functions.
+Defines the internal structure of a `ProteinComplex` S3 object used throughout
+the complex merging pipeline. This object encapsulates all metadata about
+protein complexes from individual techniques and merged complexes.
 }
-\details{
-A `ProteinComplex` object is a list with the following key components:
+\section{Structure}{
+
+A `ProteinComplex` object is a list with these components:
 \describe{
-  \item{proteins}{A sorted character vector of unique protein identifiers
-    constituting the complex.}
-  \item{list_quality_score_origin}{Numeric, the quality score (0-1) of the
-    source list from which this complex originated or the averaged score if
-    merged.}
-  \item{original_name}{Character, the original name or identifier of the
-    complex from its source list, or a generated name for merged complexes.}
-  \item{source_list_id}{Character, identifier of the source list (e.g.,
-    "Technique1", "APMS") or "merged" if the complex results from merging.}
-  \item{support_level}{Character, indicates the support:
-    "both_techniques" if merged, or e.g., "Technique1_only" if specific.}
-  \item{merged_from_similarity}{Numeric, the similarity score (e.g., Simpson)
-    that led to this complex being merged. `NA` if not a merged complex.}
-  \item{merged_stability_score}{Numeric, a stability score for merged
-    complexes, often an average of the origin list quality scores. `NA` if
-    not merged.}
-  \item{final_score}{Numeric, a ranked score after validation, potentially
-    including bonuses for merged complexes.}
-  \item{technique1_data}{If merged, a `ProteinComplex` object representing
-    the original complex from the first list. `NULL` otherwise.}
-  \item{technique2_data}{If merged, a `ProteinComplex` object representing
-    the original complex from the second list. `NULL` otherwise.}
-  \item{core_proteins}{Character vector of proteins common to both original
-    complexes if merged.}
-  \item{technique1_specific_proteins}{Character vector of proteins unique to
-    the first original complex if merged.}
-  \item{technique2_specific_proteins}{Character vector of proteins unique to
-    the second original complex if merged.}
-  \item{original_metadata}{A list for storing any additional metadata
-    associated with the complex from its origin.}
+  \item{proteins}{Sorted character vector of unique protein identifiers}
+  \item{list_quality_score_origin}{Numeric (0-1) quality score of source list}
+  \item{original_name}{Character, original complex name/identifier}
+  \item{source_list_id}{Character, source technique ID or "merged"}
+  \item{support_level}{Character, indicates support level ("both_techniques",
+    "Technique1_only", etc.)}
+  \item{merged_from_similarity}{Numeric similarity score that triggered merge}
+  \item{merged_stability_score}{Numeric stability score for merged complexes}
+  \item{final_score}{Numeric ranked score after validation}
+  \item{technique1_data}{Original `ProteinComplex` from first technique}
+  \item{technique2_data}{Original `ProteinComplex` from second technique}
+  \item{core_proteins}{Proteins common to both original complexes}
+  \item{technique1_specific_proteins}{Proteins unique to first technique}
+  \item{technique2_specific_proteins}{Proteins unique to second technique}
+  \item{original_metadata}{List of additional metadata}
 }
+}
+
+\section{Pipeline Integration}{
+
+This S3 class is used throughout the merging pipeline:
+- Created by `new_protein_complex()` and `convert_raw_list_to_s3()`
+- Processed by similarity and merging functions
+- Validated and ranked by `validate_and_rank_complexes()`
+}
+
+\seealso{
+\code{\link{merge_protein_complexes}} for the main pipeline function
+
+\code{\link{utils}} for general utility functions
 }
 \keyword{internal}

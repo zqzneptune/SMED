@@ -2,29 +2,62 @@
 % Please edit documentation in R/complex_merging_extractors.R
 \name{get_all_complex_summary}
 \alias{get_all_complex_summary}
-\title{Get Summary of Complex Types from Merging Results}
+\title{Summary of Protein Complex Types from Merging Results}
 \usage{
 get_all_complex_summary(merging_results)
 }
 \arguments{
-\item{merging_results}{A list of `ProteinComplex` S3 objects.}
+\item{merging_results}{A list of `ProteinComplex` S3 objects with:
+- `support_level` indicating merging status
+- `source_list_id` for technique-specific complexes}
 }
 \value{
 Invisibly returns a named list containing counts:
-  \item{total_complexes_in_results}{Total number of complexes.}
-  \item{merged_both_techniques}{Number of merged complexes.}
-  \item{specific_<technique_id>}{Number of specific complexes for each
-    identified technique ID. Multiple such entries can exist.}
+  \item{total_complexes_in_results}{Total input complexes}
+  \item{merged_both_techniques}{Merged complexes count}
+  \item{specific_<technique_id>}{Counts for each technique-specific group}
 }
 \description{
-Provides a console printout and an invisible named list summarizing the
-counts of merged complexes and technique-specific complexes based on the
-output from `merge_protein_complexes`.
+Provides quantitative summary of complex types (merged vs technique-specific)
+from protein complex merging results. Essential for quality control and
+reporting the success of complex merging across techniques.
 }
+\section{Biological Relevance}{
+
+The summary statistics help assess:
+1. Reproducibility between techniques (high merged count = good reproducibility)
+2. Technique-specific biases (large differences in technique-specific counts)
+3. Overall data quality (very low merged counts may indicate poor data)
+}
+
+\section{Performance}{
+
+Time complexity: O(n) where n is number of input complexes. Requires 
+additional O(k) memory where k is number of unique technique IDs.
+}
+
 \examples{
-# Assuming 'results' is output from merge_protein_complexes example
-# summary_counts <- get_all_complex_summary(results)
+\dontrun{
+data(load_cofrac_293NE12_hcw)
+data(load_cofrac_HeLaCE12_tcs)
+
+merged_results <- merge_protein_complexes(
+  list1 = load_cofrac_293NE12_hcw(),
+  list2 = load_cofrac_HeLaCE12_tcs(),
+  list1_id = "HCW",
+  list2_id = "TCS"
+)
+
+# Get summary statistics
+summary_counts <- get_all_complex_summary(merged_results)
+
+# Quality thresholds based on expected behavior
+if (summary_counts$merged_both_techniques/summary_counts$total_complexes_in_results < 0.2) {
+  warning("Low merging rate - check technique compatibility")
+}
+}
 }
 \seealso{
-\code{\link{merge_protein_complexes}}
+\code{\link{merge_protein_complexes}},
+  \code{\link{get_technique_specific_complexes}}
 }

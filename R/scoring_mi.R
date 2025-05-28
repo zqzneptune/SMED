@@ -1,35 +1,82 @@
 #' Score PPIs using Mutual Information from Elution Profiles
 #'
 #' Calculates Mutual Information (MI) scores for potential protein-protein
-#' interactions (PPIs). Elution profiles are first discretized, and then
-#' pairwise MI is computed. Higher MI suggests stronger (non-linear) correlation.
+#' interactions (PPIs) based on co-elution patterns. MI measures the non-linear
+#' dependence between protein elution profiles, capturing both linear and 
+#' non-linear correlations that may indicate functional relationships or physical
+#' interactions.
+#'
+#' @details 
+#' Biological Significance:
+#' Mutual information quantifies how much knowing the elution profile of one 
+#' protein reduces uncertainty about another's profile. High MI suggests:
+#' \itemize{
+#'   \item Potential physical interaction in the same complex
+#'   \item Functional coordination (e.g., same pathway)
+#'   \item Shared regulatory mechanisms
+#' }
+#' Compared to linear metrics like Pearson correlation, MI can detect more complex
+#' relationships but may be more sensitive to noise.
+#'
+#' Calculation Process:
+#' 1. Filter proteins by minimum presence (removes sparse profiles)
+#' 2. Discretize continuous elution profiles into bins
+#' 3. Compute pairwise MI using empirical probability estimates
+#' 4. Filter and rank interactions by MI score
+#'
+#' Discretization:
+#' Continuous elution profiles are converted to discrete values using:
+#' \itemize{
+#'   \item \code{equalwidth}: Uniform bin widths (default)
+#'   \item \code{equalfreq}: Equal observations per bin
+#'   \item \code{globalequalwidth}: Global binning across all proteins
+#' }
+#' More bins increase sensitivity but require more data. Typical values are 3-5 bins.
+#'
+#' Edge Cases:
+#' \itemize{
+#'   \item Returns empty data frame if <2 proteins pass filtering
+#'   \item Handles NA values by imputation with 0
+#'   \item Validates matrix structure and names
+#' }
 #'
 #' @param elution_matrix A numeric matrix where rows are proteins (named) and
-#'   columns are fractions.
+#'   columns are fractions. Should contain raw or normalized intensity values.
 #' @param min_fractions_present Integer, minimum number of fractions a protein
-#'   must be detected in. Passed to `filter_matrix_by_nonzero_fractions`.
-#'   Default is 0.
+#'   must be detected in. Higher values increase stringency but may reduce
+#'   coverage. Passed to `filter_matrix_by_nonzero_fractions`. Default is 0.
 #' @param discretization_method Character, method for discretizing continuous
-#'   elution data. Passed to `infotheo::discretize`. Common choices are
-#'   "globalequalwidth", "equalwidth", "equalfreq". Default "equalwidth".
-#' @param num_bins Integer, number of bins for discretization. Default 3.
+#'   elution data. Passed to `infotheo::discretize`. Common choices are:
+#'   \itemize{
+#'     \item "equalwidth" (default): Uniform bin widths
+#'     \item "equalfreq": Equal observations per bin  
+#'     \item "globalequalwidth": Global uniform binning
+#'   }
+#' @param num_bins Integer, number of bins for discretization (typically 3-5).
+#'   More bins capture finer patterns but require more data. Default 3.
 #' @param mi_method Character, method for MI estimation. Passed to
-#'   `infotheo::mutinformation`. E.g., "emp" (empirical estimator).
-#'   Default "emp".
+#'   `infotheo::mutinformation`. Options include:
+#'   \itemize{
+#'     \item "emp" (default): Empirical estimator
+#'     \item "mm": Miller-Madow correction
+#'     \item "shrink": Shrinkage estimator
+#'   }
 #' @param score_cutoff Numeric or `NULL`. If numeric, PPIs with MI score below
-#'   this cutoff are discarded. Applied *before* `top_n_ppi`. Default `NULL`.
-#' @param top_n_ppi Integer or `NULL`. If an integer, the top N PPIs by MI
-#'   score (after cutoff) are returned. If `NULL` (default), all PPIs passing
-#'   the cutoff are returned.
+#'   this cutoff are discarded. Higher values increase precision but reduce
+#'   recall. Applied before `top_n_ppi`. Default `NULL`.
+#' @param top_n_ppi Integer or `NULL`. If an integer, returns the top N PPIs by
+#'   MI score (after cutoff). If `NULL` (default), returns all PPIs passing
+#'   the cutoff.
 #'
 #' @return A data frame with columns:
-#'   \item{PPI}{Protein-protein interaction ("ProteinA~ProteinB").}
-#'   \item{mi_score}{Mutual Information score.}
+#'   \item{PPI}{Protein-protein interaction ("ProteinA~ProteinB")}
+#'   \item{mi_score}{Mutual Information score (bits)}
 #'   Sorted by `mi_score` in descending order.
+#'
 #' @export
 #' @importFrom infotheo discretize mutinformation
 #' @seealso \code{\link{filter_matrix_by_nonzero_fractions}},
-#'   \code{\link{generate_all_pairwise_ppi}}
+#'   \code{\link{generate_all_pairwise_ppi}}, \code{\link{score_ppi_by_mi.Rd}}
 #' @examples
 #' if (requireNamespace("infotheo", quietly = TRUE)) {
 #'   set.seed(123)
@@ -39,9 +86,14 @@
 #'   mat["P2",] <- mat["P1",] + rnorm(10, 0, 0.5)
 #'   mat[1:5,1] <- 1 # for min_fractions_present
 #'
+#'   # Basic usage with equal-width discretization
 #'   mi_scores <- score_ppi_by_mi(mat, min_fractions_present = 1,
 #'                                num_bins = 3, top_n_ppi = 5)
 #'   print(mi_scores)
+#'
+#'   # More bins with equal-frequency discretization
+#'   mi_scores2 <- score_ppi_by_mi(mat, discretization_method = "equalfreq",
+#'                                num_bins = 5)
 #' }
 score_ppi_by_mi <- function(elution_matrix,
                             min_fractions_present = 0,

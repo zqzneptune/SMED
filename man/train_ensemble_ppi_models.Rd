@@ -2,7 +2,7 @@
 % Please edit documentation in R/machine_learning.R
 \name{train_ensemble_ppi_models}
 \alias{train_ensemble_ppi_models}
-\title{Train Multiple Machine Learning Models and Ensemble Predictions}
+\title{Train Ensemble of Machine Learning Models for PPI Prediction}
 \usage{
 train_ensemble_ppi_models(
   ppi_score_df,
@@ -16,41 +16,78 @@ train_ensemble_ppi_models(
 )
 }
 \arguments{
-\item{ppi_score_df}{A data frame where the first column is "PPI" (character
-string, e.g., "ProteinA~ProteinB") and subsequent columns are numeric
-feature scores for these PPIs.}
+\item{ppi_score_df}{Data frame with "PPI" column and feature scores}
 
-\item{reference_train_interactome}{A list containing two data frames:
-`TP` (True Positives) and `TN` (True Negatives). Each data frame must
-contain a column named "PPI" with PPI identifiers. These are used to
-label PPIs in `ppi_score_df` for training.}
+\item{reference_train_interactome}{List with TP/TN reference PPIs}
 
-\item{model_methods_vector}{A character vector of `caret` model method names
-(e.g., c("rf", "glmnet")).}
+\item{model_methods_vector}{Vector of caret model methods}
 
-\item{average_predictions}{Logical, if `TRUE` (default), an additional
-column "SMED_Score" (Simple Mean Ensemble D-score) with row-wise mean
-of probabilities from all models is added.}
+\item{average_predictions}{Whether to compute SMED_Score (default TRUE)}
 
-\item{num_cv_folds}{Integer, number of folds for cross-validation. Default 5.}
+\item{num_cv_folds}{Cross-validation folds (2-10, default 5)}
 
-\item{num_cv_repeats}{Integer, number of repeats for cross-validation.
-Default 10. (Note: original had 10, `integrate_ppi_scores_and_train` default 1)
-Let's make it 1 here for consistency with the single trainer default.}
+\item{num_cv_repeats}{CV repeats (1-10, default 1)}
 
-\item{seed}{Integer, for reproducibility. Default 100.}
+\item{seed}{Random seed (default 100)}
 
-\item{num_cores}{Integer, number of cores for parallel training of each model.
-Default is 2.}
+\item{num_cores}{Parallel cores (1-8, default 2)}
 }
 \value{
-The input `ppi_score_df` augmented with columns for predicted
-  probabilities from each trained model. If `average_predictions` is `TRUE`,
-  an additional "SMED_Score" column is also included.
+Input data frame augmented with:
+  - Prob_[model] columns for each model
+  - SMED_Score column if average_predictions=TRUE
 }
 \description{
-Trains a suite of specified machine learning models using `caret` on PPI
-feature scores and a reference training set of interactions.
-Predictions from these models are then (optionally) averaged to produce an
-ensemble score.
+Trains multiple models and optionally averages predictions to create:
+- SMED_Score (Simple Mean Ensemble D-score):
+  \deqn{SMED = \frac{1}{n}\sum_{i=1}^{n} p_i}
+}
+\section{Ensemble Methodology}{
+
+This function implements a simple ensemble approach that:
+1. Trains each specified model independently
+2. Collects predicted probabilities from all models
+3. Computes mean probability (SMED score)
+4. Returns individual and combined predictions
+}
+
+\section{Training Process}{
+
+The ensemble training involves:
+1. Creating binary labels from reference PPIs
+2. Training each model via \code{\link{integrate_ppi_scores_and_train}}
+3. Handling missing predictions gracefully
+4. Computing ensemble scores
+}
+
+\section{Performance Evaluation}{
+
+The ensemble is evaluated by:
+- Comparing individual model AUCs
+- Assessing ensemble AUC improvement
+- Analyzing correlation between model predictions
+- Examining calibration of ensemble scores
+}
+
+\examples{
+ppi_scores <- data.frame(
+  PPI = c("A~B", "B~C"),
+  score1 = c(0.5, 0.3),
+  score2 = c(1.2, 0.8)
+)
+reference <- list(
+  TP = data.frame(PPI = "A~B"),
+  TN = data.frame(PPI = "B~C")
+)
+result <- train_ensemble_ppi_models(
+  ppi_scores, reference, c("rf", "glmnet")
+)
+
+# Evaluate ensemble performance
+# library(pROC)
+# roc(response=ifelse(result$PPI \%in\% reference$TP$PPI, 1, 0),
+#     predictor=result$SMED_Score)
+}
+\seealso{
+\code{\link{integrate_ppi_scores_and_train}} for single models
 }

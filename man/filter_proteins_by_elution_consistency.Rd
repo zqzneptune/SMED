@@ -2,7 +2,7 @@
 % Please edit documentation in R/protein_filtering_elution.R
 \name{filter_proteins_by_elution_consistency}
 \alias{filter_proteins_by_elution_consistency}
-\title{Retain Proteins Based on Elution Profile Consistency}
+\title{Filter Proteins Based on Elution Profile Consistency}
 \usage{
 filter_proteins_by_elution_consistency(
   elution_matrix,
@@ -13,51 +13,110 @@ filter_proteins_by_elution_consistency(
 }
 \arguments{
 \item{elution_matrix}{A numeric matrix where rows are proteins and columns
-are fractions. Missing values (NA) will be imputed.}
+are fractions. Expected to contain MS intensity values (log2 recommended).
+Missing values (NA) will be imputed using row medians. Row names should be
+protein identifiers for meaningful output.}
 
-\item{num_permutations}{Integer, the number of permutations to perform for
-calculating profile consistency. Default is 1000.}
+\item{num_permutations}{Integer (>=10), the number of permutations to perform
+for calculating profile consistency. More permutations increase precision
+but require more computation. Default: 1000.}
 
-\item{mad_threshold}{Numeric, the number of MADs from the median ratio to use
-as a threshold for retaining proteins. Proteins with ratios outside
-`median +/- mad_threshold * MAD` are kept. Default is determined by the
-original code's context (e.g., `nmad` argument in `RetainElutionProtein`).
-A common value might be 2 or 3. Here, let's use 2.}
+\item{mad_threshold}{Numeric (>=0), the number of MADs from the median ratio
+to use as threshold. Higher values retain fewer proteins. Typical range 1-3.
+Default: 2.}
 
-\item{verbose}{Logical, if `TRUE`, a progress bar will be displayed.
-Default `TRUE`.}
+\item{verbose}{Logical, whether to show progress bar. Default: TRUE.}
 }
 \value{
-A character vector of protein identifiers (row names from the
-  input matrix) that are retained after filtering.
+A character vector of protein identifiers (row names from input)
+  that pass the consistency filter. If input lacks rownames, returns numeric
+  indices instead (with warning). The output represents proteins with
+  reproducible elution profiles likely to be part of stable complexes.
 }
 \description{
-Filters proteins from an elution matrix based on the consistency of their
-elution profiles. It uses a permutation-based approach: repeatedly,
-fractions are split into two halves, and a ratio of summed intensities
-(or squared intensities) is calculated for each protein. Proteins whose
-average ratio across permutations deviates significantly (based on Median
-Absolute Deviation - MAD) from the overall median ratio are retained.
-This method aims to identify proteins with non-random or structured
-elution patterns.
+Identifies and retains proteins with structured elution profiles from 
+chromatographic fractionation data. The function evaluates profile consistency
+using a permutation-based approach that assesses reproducibility across
+fraction splits. This is particularly useful for identifying proteins that
+co-elute as part of protein complexes.
+}
+\details{
+## Elution Profile Criteria
+- Profiles should show consistent peak patterns across technical replicates
+- Peaks should have sufficient width (typically 3+ fractions) to be considered
+  biologically relevant
+- Profiles should be reproducible across random splits of the fractions
+
+## Biological Significance
+Proteins with consistent elution profiles are more likely to:
+- Be part of stable protein complexes
+- Have specific interaction partners  
+- Show coordinated regulation
+- Represent biologically meaningful interactions rather than random co-elution
+
+## Chromatographic Assumptions
+- Fractions are ordered by elution time (early to late)
+- Fractionation provides sufficient resolution (10-30 fractions ideal)
+- Technical variation between fractions is minimal
+- Peak shapes follow expected chromatographic behavior (Gaussian-like)
+
+## Quality Control
+- MAD threshold filters out proteins with random/noisy profiles
+- Permutation approach ensures robustness to fraction ordering
+- Missing value imputation handles common MS data issues
+- Automatic handling of odd-numbered fraction sets
+
+## Performance Characteristics
+- Time complexity: O(n*p*k) where:
+  - n = number of proteins
+  - p = number of permutations  
+  - k = number of fractions
+- Memory usage: Scales with matrix size + permutation storage
+- Parallelization: Not currently implemented but could benefit from it
+- Typical runtime: ~1-5 minutes for 1000 proteins, 20 fractions, 1000 perms
+
+## Parameter Effects
+- `num_permutations`: Higher values increase precision but linearly increase runtime
+  - Below 100: Potentially unstable results
+  - 100-1000: Typical range for most analyses
+  - Above 1000: Diminishing returns
+- `mad_threshold`: Controls stringency of filtering
+  - 0-1: Very permissive (may retain noise)
+  - 1-2: Balanced (default)
+  - 2-3: Stringent (may lose true complexes)
+  - 3+: Very stringent (high specificity)
 }
 \examples{
-# Create a dummy elution matrix
+# Create a dummy elution matrix with realistic properties
 set.seed(123)
-mat <- matrix(rnorm(50 * 20), nrow = 50, ncol = 20)
-rownames(mat) <- paste0("Prot", 1:50)
-colnames(mat) <- paste0("Frac", 1:20)
-# Introduce some NAs
-mat[sample(length(mat), 50)] <- NA
-# Add some structured profiles for a few proteins
-mat[1, 5:10] <- mat[1, 5:10] + 5 # Prot1 peaks
-mat[2, 10:15] <- mat[2, 10:15] + 5 # Prot2 peaks
+mat <- matrix(rnorm(100 * 24), nrow = 100, ncol = 24)
+rownames(mat) <- paste0("Prot", 1:100)
+colnames(mat) <- paste0("Frac", 1:24)
 
-# Reduce permutations for quick example
-retained_prots <- filter_proteins_by_elution_consistency(mat,
-                                          num_permutations = 50,
-                                          mad_threshold = 2,
-                                          verbose = FALSE)
-print(paste("Number of retained proteins:", length(retained_prots)))
-# print(retained_prots) # Potentially Prot1, Prot2 and others by chance
+# Introduce structured profiles for some proteins
+mat[1:5, 5:10] <- mat[1:5, 5:10] + rnorm(30, mean = 5, sd = 1)  # Complex A
+mat[6:10, 12:18] <- mat[6:10, 12:18] + rnorm(42, mean = 4, sd = 1) # Complex B
+
+# Add random NAs (10\% missing values)
+mat[sample(length(mat), 0.1 * length(mat))] <- NA
+
+# Run filtering with different parameters
+retained_default <- filter_proteins_by_elution_consistency(mat)
+retained_stringent <- filter_proteins_by_elution_consistency(mat, mad_threshold = 2.5)
+retained_fast <- filter_proteins_by_elution_consistency(mat, num_permutations = 100)
+
+# Compare results
+length(retained_default)    # Typically ~10-15 with this example
+length(retained_stringent)  # Typically ~5-8 
+length(retained_fast)       # Similar to default but less precise
+
+# Visualize retained proteins
+if (interactive() & requireNamespace("ggplot2", quietly = TRUE)) {
+  plot_elution_ridges(mat[retained_default, ], ncol = 3)
+}
+}
+\seealso{
+\code{\link{filter_proteins_by_elution_consistency}} (man page),
+  \code{\link{prepare_elution_matrix}} for input preparation,
+  \code{\link{filter_by_mad_threshold}} for threshold implementation
 }

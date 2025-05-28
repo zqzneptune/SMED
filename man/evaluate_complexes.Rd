@@ -12,7 +12,7 @@ evaluate_complexes(
 }
 \arguments{
 \item{gold_standard_complexes}{A list of character vectors, where each
-vector represents a gold standard protein complex.}
+vector represents a gold standard protein complex (e.g., from CORUM).}
 
 \item{predicted_complexes}{A list of character vectors, where each
 vector represents a predicted protein complex.}
@@ -35,18 +35,77 @@ A named numeric vector containing:
 \description{
 Computes several metrics (Sn, PPV, Accuracy, Jaccard, PR score) to
 evaluate a list of predicted protein complexes against a gold standard set.
-This function is based on the evaluation metrics described by
+This function implements the evaluation metrics described by
 Zhang X-F, et al. (2012) PLoS ONE 7(8): e43092.
 }
+\section{Evaluation Metrics}{
+
+\describe{
+  \item{Sensitivity (Sn)}{Measures the fraction of proteins in gold standard 
+    complexes that are correctly predicted. Weighted by complex size.}
+  \item{Positive Predictive Value (PPV)}{Measures the fraction of predicted 
+    complex proteins that match gold standard complexes. Weighted by overlap.}
+  \item{Accuracy (ACC)}{Geometric mean of Sn and PPV, providing balanced 
+    measure of both metrics.}
+  \item{Jaccard Index}{Measures similarity between complexes based on shared 
+    proteins relative to total proteins in either complex.}
+  \item{PR Score}{Precision-Recall like score that balances coverage and 
+    accuracy of predictions.}
+}
+}
+
+\section{Statistical Methods}{
+
+The function uses weighted averages where larger complexes contribute more to 
+the final score. All metrics are calculated in parallel when possible using 
+`mclapply`. The weighting scheme ensures that:
+\itemize{
+  \item Large complexes don't dominate purely by size
+  \item Small complexes still contribute meaningfully
+  \item The final scores reflect overall prediction quality
+}
+}
+
+\section{Biological Significance}{
+
+These metrics help assess how well predicted protein complexes match known 
+biological complexes in terms of:
+\itemize{
+  \item Protein composition accuracy
+  \item Functional unit identification
+  \item Complex boundary determination
+  \item Overall biological relevance
+}
+}
+
+\section{Benchmarking}{
+
+When benchmarking different prediction methods:
+\itemize{
+  \item Use the same gold standard for fair comparison
+  \item Consider running multiple trials with different random seeds
+  \item Report all three metrics (ACC, Jaccd, PR) for comprehensive evaluation
+}
+}
+
 \examples{
+# Basic example with small complexes
 gs_cpx <- list(c("A", "B", "C"), c("C", "D", "E"))
 pred_cpx <- list(c("A", "B"), c("C", "D"), c("F", "G"))
-if (requireNamespace("parallel", quietly = TRUE)) {
-  # Use a low number of cores for example, adjust as needed
-  # On Windows, mclapply will run sequentially if num_cores > 1
-  is_windows <- .Platform$OS.type == "windows"
-  core_count <- if (is_windows) 1L else getOption("mc.cores", 2L)
-  metrics <- evaluate_complexes(gs_cpx, pred_cpx, num_cores = core_count)
+metrics <- evaluate_complexes(gs_cpx, pred_cpx)
+print(metrics)
+
+# Real-world example using included data
+if (requireNamespace("parallel", quietly = TRUE) {
+  data(RefCORUM_Havugimana_PC_Cell_2012_n_324, package = "SMED")
+  data(PredCpx_Havugimana_PC_Cell_2012_n_622, package = "SMED")
+  
+  # Subset to first 50 complexes for example
+  gs_sub <- RefCORUM_Havugimana_PC_Cell_2012_n_324[1:50]
+  pred_sub <- PredCpx_Havugimana_PC_Cell_2012_n_622[1:50]
+  
+  # Evaluate with 2 cores (if available)
+  metrics <- evaluate_complexes(gs_sub, pred_sub, num_cores = 2)
   print(metrics)
 }
 }

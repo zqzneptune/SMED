@@ -7,20 +7,36 @@
 generate_all_pairwise_ppi(protein_vector)
 }
 \arguments{
-\item{protein_vector}{A character vector of protein identifiers.}
+\item{protein_vector}{A character vector of protein identifiers. Must be 
+non-missing and coercible to character. Duplicates are automatically removed.}
 }
 \value{
 A data frame with columns:
-  \item{InteractorA}{The first protein in the pair (lexicographically smaller).}
-  \item{InteractorB}{The second protein in the pair.}
-  \item{PPI}{A string representing the interaction (e.g., "ProteinA~ProteinB").}
+  \item{InteractorA}{The first protein in the pair (lexicographically smaller)}
+  \item{InteractorB}{The second protein in the pair}
+  \item{PPI}{A string representing the interaction (e.g., "ProteinA~ProteinB")}
   Returns an empty data frame with these columns if fewer than 2 proteins
   are provided.
 }
 \description{
-Creates a data frame of all unique pairwise protein-protein interactions (PPIs)
-from a given vector of protein identifiers. Interactions are represented as
-"ProteinA~ProteinB" where ProteinA is lexicographically smaller than ProteinB.
+Creates a comprehensive data frame of all unique pairwise protein-protein 
+interactions (PPIs) from a given vector of protein identifiers using 
+combinatorial generation. This serves as the foundation for many PPI analysis
+workflows.
+}
+\details{
+Algorithm:
+1. Input proteins are deduplicated and sorted lexicographically
+2. All unique pairwise combinations (n choose 2) are generated
+3. Each interaction is represented as "ProteinA~ProteinB" where ProteinA is 
+   lexicographically smaller than ProteinB to ensure consistent representation
+   of bidirectional interactions
+
+Biological Considerations:
+- Assumes all input proteins are from the same organism/species
+- No filtering is applied - all possible pairs are generated regardless of
+  biological plausibility
+- Protein identifiers should be consistent (e.g., all UniProt IDs or all gene symbols)
 }
 \examples{
 proteins <- c("ProteinC", "ProteinA", "ProteinB")
@@ -30,4 +46,8 @@ print(ppi_df)
 single_protein <- c("ProteinX")
 ppi_df_single <- generate_all_pairwise_ppi(single_protein)
 print(ppi_df_single)
+}
+\seealso{
+\code{\link{generate_reference_ppi_sets}} for generating TP/TN PPIs,
+  \code{\link{generate_all_pairwise_ppi}} (man page) for additional examples
 }

@@ -1,32 +1,68 @@
 #' Score PPIs using Weighted Cross-Correlation (WCC)
 #'
-#' Calculates Weighted Cross-Correlation (WCC) scores for potential
-#' protein-protein interactions (PPIs) based on their elution profiles.
-#' WCC is a measure of similarity between time series (elution profiles) that
-#' can account for lags.
+#' Calculates Weighted Cross-Correlation (WCC) scores for potential protein-protein 
+#' interactions (PPIs) based on their co-elution profiles. WCC is particularly 
+#' useful for detecting shifted or lagged relationships between protein elution 
+#' profiles, which may indicate transient interactions or complex formation 
+#' dynamics.
+#'
+#' @details
+#' The Weighted Cross-Correlation (WCC) method implemented here uses the 
+#' `ptw::wcc` function which calculates a similarity score between two profiles 
+#' considering possible lags. Key features:
+#' \itemize{
+#'   \item \strong{Biological Significance}: WCC can detect protein pairs that 
+#'   co-elute but with potential time shifts, which may occur when proteins 
+#'   interact transiently or as part of sequential complex assembly.
+#'   \item \strong{Weighting Approach}: The WCC calculation uses a triangular 
+#'   weighting function centered at zero lag, giving highest weight to perfect 
+#'   co-elution while still considering shifted profiles. The `window_width` 
+#'   parameter controls how far to look for shifted matches.
+#'   \item \strong{Comparison to Other Metrics}: Unlike Pearson Correlation 
+#'   (PCC), WCC can detect lagged relationships. Compared to Mutual Information 
+#'   (MI), WCC is more sensitive to linear relationships but less robust to 
+#'   non-linear patterns.
+#' }
 #'
 #' @param elution_matrix A numeric matrix where rows are proteins (named) and
-#'   columns are fractions.
+#'   columns are fractions. Missing values should be NA. Profiles should be 
+#'   normalized (e.g., by total ion count) before WCC calculation.
 #' @param min_fractions_present Integer, minimum number of fractions a protein
-#'   must be detected in. Passed to `filter_matrix_by_nonzero_fractions`.
-#'   Default is 2.
-#' @param window_width Integer, the window width (`trwdth` argument) for `ptw::wcc`.
-#'   This defines the maximum lag considered. Default is 1.
+#'   must be detected in (non-NA). Proteins with fewer detections are filtered 
+#'   out. Default 2 allows minimal detection while avoiding single-point 
+#'   artifacts. Higher values increase stringency but may reduce coverage.
+#' @param window_width Integer, the maximum lag considered (trwdth parameter 
+#'   in `ptw::wcc`). Larger values allow detection of more shifted relationships 
+#'   but increase noise sensitivity. Default 1 balances sensitivity and 
+#'   specificity for typical SEC experiments.
 #' @param score_cutoff Numeric or `NULL`. If numeric, PPIs with WCC score below
-#'   this cutoff are discarded. Applied *before* `top_n_ppi`. Default `NULL`.
-#' @param top_n_ppi Integer or `NULL`. If an integer, the top N PPIs by WCC
-#'   score (after cutoff) are returned. If `NULL` (default), all PPIs passing
-#'   the cutoff are returned.
+#'   this value are discarded. Typical cutoffs range 0.3-0.7 depending on data 
+#'   quality and window_width. Applied before `top_n_ppi`. Default `NULL`.
+#' @param top_n_ppi Integer or `NULL`. If specified, returns only the top N 
+#'   highest-scoring PPIs. Useful for reducing computational burden in 
+#'   downstream analyses. Default `NULL` returns all PPIs above cutoff.
 #'
 #' @return A data frame with columns:
-#'   \item{PPI}{Protein-protein interaction ("ProteinA~ProteinB").}
-#'   \item{wcc_score}{Weighted Cross-Correlation score.}
-#'   Sorted by `wcc_score` in descending order.
+#'   \item{PPI}{Protein-protein interaction in "ProteinA~ProteinB" format.}
+#'   \item{wcc_score}{Weighted Cross-Correlation score ranging from -1 (perfect 
+#'   anti-correlation) to 1 (perfect correlation), with higher absolute values 
+#'   indicating stronger relationships. Scores near 0 suggest no relationship.}
+#'   The data frame is sorted by `wcc_score` in descending order.
+#'
+#' @section Edge Cases and Special Handling:
+#' \itemize{
+#'   \item Proteins with < `min_fractions_present` detections are filtered out
+#'   \item NA values are imputed as 0 before WCC calculation
+#'   \item If < 2 proteins remain after filtering, returns empty data frame
+#'   \item WCC calculation errors (e.g., constant profiles) return NA scores
+#' }
+#'
 #' @export
 #' @importFrom proxy dist as.matrix
 #' @importFrom ptw wcc
 #' @seealso \code{\link{filter_matrix_by_nonzero_fractions}},
-#'   \code{\link{generate_all_pairwise_ppi}}
+#'   \code{\link{generate_all_pairwise_ppi}}, \code{\link{score_ppi_by_pccn}},
+#'   \code{\link{score_ppi_by_mi}}
 #' @examples
 #' if (requireNamespace("proxy", quietly = TRUE) &&
 #'     requireNamespace("ptw", quietly = TRUE)) {
@@ -37,9 +73,13 @@
 #'   mat["P2", 2:10] <- mat["P1", 1:9]
 #'   mat[1:5,1] <- 1 # for min_fractions
 #'
-#'   wcc_scores <- score_ppi_by_wcc(mat, min_fractions_present = 1,
-#'                                  window_width = 2, top_n_ppi = 3)
-#'   print(wcc_scores)
+#'   # Basic usage
+#'   wcc_scores <- score_ppi_by_wcc(mat, min_fractions_present = 1)
+#'   
+#'   # Demonstrate lag detection
+#'   wide_window <- score_ppi_by_wcc(mat, min_fractions_present = 1,
+#'                                  window_width = 3)
+#'   print(wide_window[wide_window$PPI == "P1~P2",]) # Should show high score
 #' }
 score_ppi_by_wcc <- function(elution_matrix,
                              min_fractions_present = 2,

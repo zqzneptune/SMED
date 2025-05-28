@@ -2,29 +2,67 @@
 % Please edit documentation in R/complex_merging_extractors.R
 \name{get_merged_complexes}
 \alias{get_merged_complexes}
-\title{Extract Merged Complexes from Merging Results}
+\title{Extract Merged Protein Complexes from Merging Results}
 \usage{
 get_merged_complexes(merging_results)
 }
 \arguments{
 \item{merging_results}{A list of `ProteinComplex` S3 objects, typically the
-output from `merge_protein_complexes`.}
+output from `merge_protein_complexes`. Each complex must have:
+- `support_level` field indicating merging status
+- `proteins` field containing protein members
+- `original_name` identifying the complex}
 }
 \value{
-A list containing only the merged `ProteinComplex` S3 objects.
-  Returns an empty list if no merged complexes are present or if input is
-  empty.
+A list containing only the merged `ProteinComplex` S3 objects with
+  `support_level = "both_techniques"`. Returns an empty list if no merged
+  complexes are present or if input is empty.
 }
 \description{
 Filters the output of `merge_protein_complexes` to retrieve only those
-complexes that are marked as being supported by both techniques (i.e.,
-they were successfully merged).
+complexes that are supported by both experimental techniques (i.e., they were
+successfully merged). These represent high-confidence complexes with 
+reproducible evidence across orthogonal experimental approaches.
 }
+\section{Biological Relevance}{
+
+Merged complexes indicate biological complexes that are robustly detected
+across different experimental techniques (e.g., AP-MS and co-fractionation).
+These are particularly valuable for downstream analyses as they represent
+high-confidence protein interactions with reduced false positive rates.
+}
+
+\section{Performance}{
+
+Time complexity: O(n) where n is number of input complexes. Memory efficient
+as it only returns references to existing objects without copying data.
+}
+
 \examples{
-# Assuming 'results' is output from merge_protein_complexes example
-# merged_only <- get_merged_complexes(results)
-# cat("Number of merged complexes:", length(merged_only), "\n")
+\dontrun{
+# Load example data from Havugimana et al. 2012
+data(load_cofrac_293NE12_hcw)
+data(load_cofrac_HeLaCE12_tcs)
+
+# Merge complexes from two techniques
+merged_results <- merge_protein_complexes(
+  list1 = load_cofrac_293NE12_hcw(),
+  list2 = load_cofrac_HeLaCE12_tcs(),
+  list1_id = "HCW",
+  list2_id = "TCS"
+)
+
+# Extract only merged complexes
+merged_complexes <- get_merged_complexes(merged_results)
+
+# Quality control: Verify expected number of merged complexes
+if (length(merged_complexes) < 50) {
+  warning("Low number of merged complexes - check input quality")
+}
+}
 }
 \seealso{
-\code{\link{merge_protein_complexes}}
+\code{\link{merge_protein_complexes}}, 
+  \code{\link{get_technique_specific_complexes}},
+  \code{\link{extract_all_protein_lists}}
 }

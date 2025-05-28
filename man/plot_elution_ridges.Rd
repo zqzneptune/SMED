@@ -12,41 +12,90 @@ plot_elution_ridges(
 )
 }
 \arguments{
-\item{elution_data_matrix}{A numeric matrix where rows are proteins (named)
-and columns are fractions.}
+\item{elution_data_matrix}{A numeric matrix where rows are proteins (must have 
+rownames) and columns are fractions (column names used for x-axis labels).}
 
-\item{normalize_power}{Numeric, profiles are raised to this power after
-0-1 normalization. Default is 3, which can accentuate peaks. Use 1 for
-no power transformation.}
+\item{normalize_power}{Numeric, profiles are raised to this power after 
+0-1 normalization. Default 3 accentuates peaks while preserving relative 
+intensities. Use 1 for linear scaling, higher values emphasize strong peaks.}
 
-\item{fill_color}{Character, color for filling the ridges. Default "#3182bd".}
+\item{fill_color}{Character, color for filling the ridges. Default "#3182bd" 
+(blue). Can be a single color or vector matching number of proteins.}
 
-\item{ridge_scale}{Numeric, scaling factor for the height of the ridges.
-Passed to `ggridges::geom_density_ridges2`. Default 0.9.}
+\item{ridge_scale}{Numeric (0-1), scaling factor for ridge height. Lower values 
+create more separation between ridges. Default 0.9 provides good visibility 
+while preventing overlap.}
 }
 \value{
-A `ggplot` object representing the ridge plot.
+A `ggplot` object representing the ridge plot with:
+\itemize{
+  \item X-axis: Elution fractions (numeric or factor)
+  \item Y-axis: Protein identifiers (ordered as input)
+  \item Ridge height: Normalized intensity values
+  \item Custom theme with clean styling
+}
 }
 \description{
-Creates a ridge plot visualizing the elution profiles of proteins from a
-fractionation experiment. Each protein's profile is normalized (0-1 range)
-and optionally transformed before plotting.
+Creates a ridge plot (also called joyplot) visualizing the elution profiles of 
+proteins from fractionation experiments like SEC (Size Exclusion Chromatography)
+or co-fractionation mass spectrometry. Each protein's profile is normalized 
+(0-1 range) and optionally transformed before plotting.
 }
-\examples{
-# Create dummy elution data
-set.seed(123)
-prot_names <- paste0("Protein", 1:5)
-frac_names <- paste0("Frac", 1:20)
-mat <- matrix(runif(5 * 20, 0, 0.5), nrow = 5, ncol = 20,
-              dimnames = list(prot_names, frac_names))
-# Add some peaks
-mat["Protein1", 5:8] <- mat["Protein1", 5:8] + c(0.5, 1, 1, 0.5)
-mat["Protein3", 10:13] <- mat["Protein3", 10:13] + c(0.4, 0.8, 0.8, 0.4)
-mat["Protein5", 1:20] <- mat["Protein5", 1:20] + runif(20,0,0.1) # noisy
+\section{Biological Interpretation}{
 
+The plot visualizes co-elution patterns which can indicate:
+\itemize{
+  \item Protein complexes (shared elution peaks)
+  \item Post-translational modifications (shifted peaks)
+  \item Technical artifacts (broad/noisy profiles)
+}
+}
+
+\section{Customization Options}{
+
+The returned ggplot object can be modified with standard ggplot2 syntax:
+\itemize{
+  \item Add titles/labels with `+ labs()`
+  \item Change colors with `+ scale_fill_*()`
+  \item Adjust theme with `+ theme()`
+  \item Add reference lines with `+ geom_vline()`
+}
+}
+
+\examples{
+# Create example data with clear co-eluting groups
+set.seed(123)
+proteins <- c(paste0("ComplexA_", 1:3), 
+              paste0("ComplexB_", 1:2),
+              "Singleton1", "Singleton2")
+fractions <- paste0("Frac", 1:24)
+
+# Base matrix with noise
+mat <- matrix(runif(length(proteins)*length(fractions), 0, 0.3), 
+             nrow = length(proteins),
+             dimnames = list(proteins, fractions))
+             
+# Add co-eluting peaks
+mat[1:3, 8:12] <- mat[1:3, 8:12] + 
+  matrix(rep(c(0.3, 0.8, 0.8, 0.3), each=3), nrow=3) # Complex A
+mat[4:5, 15:19] <- mat[4:5, 15:19] + 
+  matrix(rep(c(0.4, 0.9, 0.9, 0.4), each=2), nrow=2) # Complex B
+
+# Plot with default parameters
 if (requireNamespace("reshape2", quietly = TRUE) &&
     requireNamespace("ggridges", quietly = TRUE)) {
-  ridge_plot <- plot_elution_ridges(mat)
-  # print(ridge_plot)
+  p <- plot_elution_ridges(mat)
+  print(p)
+  
+  # Customized version
+  p + 
+    ggplot2::labs(title = "Co-fractionation Profiles",
+                 subtitle = "Showing two putative complexes") +
+    ggplot2::scale_fill_manual(values = c(rep("#E41A1C",3), # Complex A red
+                                        rep("#377EB8",2), # Complex B blue
+                                        "#4DAF4A", "#984EA3")) # Singletons
 }
+}
+\seealso{
+\code{\link{plot_elution_ridges}} (man page) for additional details
 }

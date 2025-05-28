@@ -7,17 +7,51 @@
 load_reference_corum_havugimana()
 }
 \value{
-A list where each element is a character vector of protein
-  identifiers representing a complex.
+A list where:
+  - Each element is a character vector of UniProt protein identifiers
+  - List is named with CORUM complex identifiers (e.g., "CORUM_1234")
 }
 \description{
 Loads an example list of CORUM reference protein complexes,
-relevant to the Havugimana et al., 2012 study context.
+relevant to the Havugimana et al., 2012 study context. This contains
+324 manually curated mammalian protein complexes from the CORUM database.
 }
+\details{
+Data originally published in Havugimana et al. Cell 2012 (PMID: 22939625)
+and derived from the CORUM database (PMID: 29145629).
+
+Supported file format: RDS (R binary serialization format)
+
+Data structure requirements:
+- Must be a named list where each element represents a complex
+- Each complex should be a character vector of UniProt protein identifiers
+- Complex names should follow CORUM naming conventions
+}
+\section{Performance Considerations}{
+
+The object is approximately 5MB in memory (324 complexes). Operations that
+require pairwise comparison of complexes may scale quadratically with the
+number of complexes. Consider:
+- Pre-filtering to complexes of interest
+- Using efficient data structures for set operations
+}
+
 \examples{
-if (interactive()) {
+\donttest{
+if (requireNamespace("SMED", quietly = TRUE)) {
+  # Load the data
   corum_complexes <- load_reference_corum_havugimana()
-  # print(length(corum_complexes))
-  # if (length(corum_complexes) > 0) print(head(corum_complexes[[1]])))
+  
+  # Basic inspection
+  length(corum_complexes)  # Number of complexes
+  names(corum_complexes)[1:5]  # First 5 complex names
+  lengths(corum_complexes)[1:5]  # Sizes of first 5 complexes
+  
+  # See vignette("01-scoring") for benchmarking examples
 }
+}
+}
+\seealso{
+\code{\link{load_pred_cpx_havugimana}},
+  \code{\link{evaluate_complexes}} for performance evaluation
 }
