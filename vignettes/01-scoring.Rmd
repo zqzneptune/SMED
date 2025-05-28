@@ -1,0 +1,454 @@
+---
+title: "Getting Started with SMED: Scoring Protein Interactions from Co-elution Data"
+author: "Qingzhou Zhang"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: readable
+    toc: true
+    toc_float: true
+    code_folding: hide
+    number_sections: true
+    df_print: kable
+vignette: >
+  %\VignetteIndexEntry{Scoring PPIs from Co-elution Data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+# Load SMED package for the vignette
+library(SMED)
+library(ggplot2)
+library(dplyr)
+library(BiocStyle)
+library(randomForest)
+library(glmnet)
+library(kernlab)
+```
+
+# Introduction
+
+Welcome to the `SMED` R package! `SMED` (Supervised Machine learning for Elution Data) is designed to predict protein-protein interactions (PPIs) from co-elution or co-fractionation mass spectrometry data. The core idea is that proteins that are part of the same complex will often elute together across multiple biochemical fractions. `SMED` leverages this principle by:
+
+1.  Calculating various co-elution scores between pairs of proteins.
+2.  Using supervised machine learning to intelligently combine these scores into a single, more robust interaction score.
+3.  This final score reflects the likelihood that a given pair of proteins interacts.
+
+This vignette will guide you through the typical workflow of using `SMED`, from loading your data to generating and evaluating interaction scores.
+
+# Input Data Requirements
+
+`SMED` requires two main types of input data: elution profiles from your co-fractionation experiments and a set of reference protein complexes or interactions to train the machine learning models.
+
+## Elution Data
+
+The primary input for `SMED` is elution data, which should be formatted as an R `matrix`.
+
+*   **Format:** Each row in the matrix represents a unique protein (identified by its rowname, e.g., UniProt ID), and each column represents a fraction from the chromatography experiment. The values within the matrix typically represent protein abundance (e.g., spectral counts, ion intensity) in each fraction.
+*   **Single Experiment Focus:** Each `matrix` should correspond to a single co-fractionation experiment.
+*   **Replicates:** If you have data from replicated experiments, you have a couple of options:
+    *   Process each replicate matrix individually through `SMED`.
+    *   Combine replicates into a single matrix *before* inputting to `SMED`, for example, by averaging the elution profiles for each protein across replicates. The best approach may depend on the specifics of your experimental design and data quality.
+
+`SMED` includes several example datasets derived from the Havugimana et al. (2012) study [1]. These datasets are already in the required `matrix` format. Let's load one to see its structure:
+
+**Example: HEK 293 nuclear extract (293NE) with Dual Heparin-IEX (HCW)**
+
+```{r load_example_elution_matrix}
+# Load an example co-fractionation dataset
+data_293NE12 <- load_cofrac_293NE12_hcw()
+
+# Display the dimensions (proteins x fractions)
+cat("Dimensions of the elution matrix:\n")
+print(dim(data_293NE12))
+
+# Display the first few rows and columns to see the structure
+cat("\nHead of the elution matrix (first 5 proteins, first 5 fractions):\n")
+print(head(data_293NE12[, 1:5]))
+```
+As you can see, rownames are protein identifiers, and columns represent the fractions.
+
+Other available example datasets include:
+*   HeLa S3 cytoplasmic extract (HeLaCE) with Triple phase-IEX (TCS): `load_cofrac_HeLaCE12_tcs()`
+*   HeLa S3 nuclear extract (HeLaNE) with Triple phase-IEX (TCS): `load_cofrac_HeLaNE45_tcs()`
+
+## Reference Protein-Protein Interactions (PPIs) for Training
+
+Since `SMED` uses supervised machine learning, it needs a "gold standard" set of known interacting protein pairs (True Positives, TP) and known non-interacting pairs (True Negatives, TN). These are used to train the models to distinguish real interactions from random co-elutions.
+
+Users can supply their own reference PPIs, typically derived from curated complex databases like CORUM, MIPS, or others. `SMED` includes a pre-processed version of CORUM complexes, specifically the set used in Havugimana et al. (2012) [1], for human protein complex prediction.
+
+Let's load the example reference complexes:
+```{r load_reference_complexes}
+# Load reference CORUM complexes
+ref_corum <- load_reference_corum_havugimana()
+
+# Display the first few complexes (each element is a character vector of protein IDs)
+cat("First 5 reference complexes:\n")
+print(ref_corum[c(1:5)])
+```
+
+From this list of complexes, we need to generate pairs of proteins for training. The `generate_reference_ppi_sets()` function helps with this. It creates:
+*   **True Positives (TP):** Pairs of proteins that are found within the same known complex.
+*   **True Negatives (TN):** Pairs of proteins that are *not* found in the same complex in the reference set. This is often generated by pairing proteins from different cellular compartments or by random pairing, ensuring they are not known interactors. (For more details on how TNs are generated, please refer to the `generate_reference_ppi_sets()` documentation using `?generate_reference_ppi_sets`).
+
+```{r generate_training_sets}
+# Generate training PPI sets (TP and TN)
+ppiTrain <- generate_reference_ppi_sets(reference_complex_list = ref_corum)
+
+# Display the structure of the output
+cat("Structure of the training PPI sets:\n")
+print(str(ppiTrain, max.level = 1))
+
+# Show a few examples of True Positive PPIs
+cat("\nHead of True Positive (TP) PPIs:\n")
+print(head(ppiTrain$TP))
+
+# Show a few examples of True Negative (TN) PPIs
+cat("\nHead of True Negative (TN) PPIs:\n")
+print(head(ppiTrain$TN))
+```
+The `PPI` column contains protein pairs formatted as "ProteinA_ProteinB".
+
+# Core Analysis Workflow
+
+Now that we understand the input data, let's walk through the main steps of a `SMED` analysis using the `data_293NE12_hcw` example dataset.
+
+## Data Loading and Pre-processing
+
+First, we load the raw elution data matrix.
+```{r load_raw_data_workflow}
+# Load the raw co-fractionation data for the workflow
+rawDat <- load_cofrac_293NE12_hcw()
+cat("Dimensions of raw data:", dim(rawDat), "\n")
+```
+
+### Filtering Proteins by Presence in Fractions
+It's common to filter out proteins that are sparsely detected. We can remove proteins that are not observed in a minimum number of fractions. Here, we require proteins to be present (non-zero abundance) in at least two fractions.
+```{r filter_by_nonzero}
+# Filter proteins: must be present in at least 2 fractions
+cntDat <- filter_matrix_by_nonzero_fractions(rawDat, min_fractions = 2)
+cat("Dimensions after filtering for presence in >=2 fractions:", dim(cntDat), "\n")
+```
+
+### Filtering Proteins by Elution Consistency
+Some proteins might show little variation across fractions (e.g., highly abundant, sticky proteins, or contaminants) or have erratic profiles. These can obscure true co-elution patterns. `filter_proteins_by_elution_consistency()` helps remove such proteins. It works by permuting the elution profile of each protein and comparing the Median Absolute Deviation (MAD) of the original profile to the distribution of MADs from permuted profiles. Proteins whose profiles are not significantly more variable than random permutations are removed.
+
+```{r filter_by_consistency}
+# Filter proteins based on elution consistency
+# num_permutations: Higher is more robust but slower. 400 is a reasonable starting point.
+# mad_threshold: Controls sensitivity. A MAD threshold of 2 means the protein's
+#                elution profile variability must be at least 2 MADs above the
+#                median of its permuted profiles to be retained.
+# verbose = FALSE: Set to TRUE for progress updates.
+retainedProtein_ids <-
+  filter_proteins_by_elution_consistency(
+    elution_matrix = cntDat, 
+    num_permutations = 400, # Using 400 for demonstration; consider more for publication
+    mad_threshold = 2, 
+    verbose = FALSE
+  )
+
+# Subset the data to include only retained proteins
+prtDat <- cntDat[rownames(cntDat) %in% retainedProtein_ids, ]
+cat("Dimensions after filtering for elution consistency:", dim(prtDat), "\n")
+```
+This step helps to focus the analysis on proteins with informative elution profiles.
+
+### Visualizing Elution Profiles (Optional)
+To get a feel for the data, we can visualize the elution profiles of proteins known to be in a specific complex. Let's pick the 4th complex from our `ref_corum` list and see how its members (that are present in `prtDat`) elute.
+
+```{r visualize_elution_profiles}
+# Identify proteins from a sample CORUM complex that are in our filtered data
+example_complex_id <- 4 # Using the 4th complex as an example
+proteins_in_complex <- ref_corum[[example_complex_id]]
+eluPrt <- intersect(proteins_in_complex, rownames(prtDat))
+
+# Subset the elution data for these proteins
+eluDat_example <- prtDat[rownames(prtDat) %in% eluPrt, ]
+
+# It's good practice to ensure there are proteins to plot
+if (nrow(eluDat_example) > 0) {
+  # Prettier column names for the plot
+  colnames(eluDat_example) <- 
+    sprintf("%03d", seq_along(colnames(eluDat_example)))
+  
+  # Plot elution ridges (log10 transformed for better visualization, adding 1 to avoid log(0))
+  p <-
+    plot_elution_ridges(log10(eluDat_example + 1))
+  
+  print(
+    p +
+      labs(title = paste("Elution Profiles for CORUM Complex", example_complex_id))
+  )
+} else {
+  cat("No proteins from CORUM complex", example_complex_id, "found in the filtered dataset for plotting.\n")
+}
+```
+Ideally, proteins within the same complex should show similar elution patterns, peaking in the same or nearby fractions.
+
+## Calculating Co-elution Scores for PPIs
+
+The next step is to quantify the similarity of elution profiles for all possible protein pairs. `SMED` provides functions to calculate various co-elution scores. Each scoring metric captures different aspects of co-elution.
+
+We will calculate scores using several methods and store them in a list.
+For demonstration purposes, we use `top_n_ppi = 1000` to speed up calculations by only considering the top N scoring pairs for each method. In a real analysis, you would likely want to calculate scores for all pairs or use a much larger `top_n_ppi`.
+
+The `min_fractions_present` argument in these scoring functions specifies the minimum number of fractions where *both* proteins in a pair must have non-zero abundance to be considered for scoring.
+
+```{r initialize_score_list}
+listScorePPI <- list()
+```
+
+### Pearson Correlation Coefficient of Co-elution Number (PCCN)
+PCCN measures the correlation based on the number of co-eluting fractions.
+```{r score_pccn, message=FALSE, warning=FALSE}
+# Note: Some scoring methods might produce warnings about NAs if pairs don't meet criteria.
+# This is often normal.
+listScorePPI[["pccn"]] <-
+  score_ppi_by_pccn(
+    elution_matrix = prtDat,
+    min_fractions_present = 3,
+    num_replicates = 30, # Number of replicates for noise estimation
+    top_n_ppi = 1000,    # For Demo purpose; remove or increase for full analysis
+    verbose = FALSE
+  )
+head(listScorePPI[["pccn"]])
+```
+
+### Weighted Cross-Correlation (WCC)
+WCC is a robust measure that considers the entire profile shape.
+```{r score_wcc}
+listScorePPI[["wcc"]] <-
+  score_ppi_by_wcc(
+    elution_matrix = prtDat,
+    min_fractions_present = 3,
+    top_n_ppi = 1000 # For Demo purpose
+  )
+head(listScorePPI[["wcc"]])
+```
+
+### Mutual Information (MI)
+MI quantifies the amount of information one elution profile provides about another.
+```{r score_mi}
+listScorePPI[["mi"]] <-
+  score_ppi_by_mi(
+    elution_matrix = prtDat, 
+    min_fractions_present = 3, 
+    top_n_ppi = 1000 # For Demo purpose
+  )
+head(listScorePPI[["mi"]])
+```
+
+### Dice Coefficient
+The Dice coefficient measures the overlap between the sets of fractions where two proteins are detected.
+```{r score_dice}
+listScorePPI[["dice"]] <-
+  score_ppi_by_dice(
+    elution_matrix = prtDat, 
+    min_fractions_present = 3, 
+    top_n_ppi = 1000 # For Demo purpose
+  )
+head(listScorePPI[["dice"]])
+```
+
+### Co-Apex Score
+This score assesses the similarity of peak apexes in the elution profiles.
+```{r score_coapex}
+listScorePPI[["coapex"]] <-
+  score_ppi_by_coapex(
+    elution_matrix = prtDat, 
+    min_fractions_present = 3, 
+    top_n_ppi = 1000 # For Demo purpose
+  )
+head(listScorePPI[["coapex"]])
+```
+
+## Integrating Scores with Machine Learning
+
+Now that we have multiple scores for protein pairs, we can use machine learning to combine them into a single, more accurate `SMED` score.
+
+### Preparing the Feature Matrix and Response Vector
+First, we combine all the calculated scores into a single data frame. Each row will be a unique protein pair (PPI), and columns will be the different co-elution scores (our features).
+```{r prepare_ml_features}
+# Combine all score data frames by PPI
+# dplyr::full_join ensures all PPIs scored by any method are included
+rawScorePPI_features <- Reduce(function(x, y) dplyr::full_join(x, y, by = "PPI"), listScorePPI)
+
+# The first column is 'PPI', the rest are scores (features)
+# NAs will be present if a PPI wasn't scored by a particular method (e.g., due to top_n_ppi)
+# or didn't meet min_fractions_present for that method.
+# Machine learning models in `caret` (used by SMED) can often handle NAs (e.g., by imputation).
+rawScore_matrix <- rawScorePPI_features[, -1] # Feature matrix
+colnames(rawScore_matrix) <- names(listScorePPI) # Ensure column names are concise
+
+cat("Dimensions of the combined feature matrix (PPIs x Scores):\n")
+print(dim(rawScore_matrix))
+cat("\nFirst few rows of the feature matrix:\n")
+print(head(rawScore_matrix))
+```
+
+Next, we create the response vector. This vector tells the machine learning algorithm whether each PPI in `rawScorePPI_features` is a known interaction (Positive, "Y") or a known non-interaction (Negative, "N") based on our `ppiTrain` set. PPIs not in our training set will be `NA`.
+```{r prepare_ml_response}
+rawResponse_vector <-
+  ifelse(
+    rawScorePPI_features$PPI %in% ppiTrain$TP$PPI, "Y", # Positive class
+    ifelse(
+      rawScorePPI_features$PPI %in% ppiTrain$TN$PPI, "N", # Negative class
+      NA                                                  # Not in training set
+    )
+  )
+
+cat("\nTable of response variable categories (Y=Positive, N=Negative, NA=Not in training):\n")
+print(table(rawResponse_vector, useNA = "ifany"))
+```
+Only the "Y" and "N" entries will be used for training the model. The model can then be used to predict scores for all PPIs, including those not in the training set.
+
+### Training Machine Learning Models
+`SMED` uses the `caret` package for model training. The function `integrate_ppi_scores_and_train()` handles this. We can try different algorithms.
+
+**Important Note on `num_cores`:** Parallel processing (`num_cores > 1`) can significantly speed up training, especially for Random Forest and SVM. Ensure you have the `doParallel` package installed if you use `num_cores > 1`. 
+
+#### Generalized Linear Models (GLM) with Elastic Net Regularization**
+GLMs are a form of regression. Elastic net helps with feature selection and prevents overfitting.
+```{r train_glm, message=FALSE, warning=FALSE}
+# It's good practice to remove rows where response is NA or features are all NA before training
+# For simplicity here, integrate_ppi_scores_and_train handles some of this.
+# However, if all features for a training instance are NA, it might cause issues.
+# The function will use complete cases from raw_score_df and response_vector for training.
+
+predicted_scores_GLM <-
+  integrate_ppi_scores_and_train(
+    raw_score_df = rawScore_matrix,
+    response_vector = rawResponse_vector,
+    model_method = "glmnet", # Uses elastic net GLM
+    # num_cores = 1 # For glmnet, parallelization is often within the method itself or less impactful
+                  # If using more, make sure doParallel is registered.
+    # For vignette building, keeping it simple:
+    num_cores = ifelse(interactive(), parallel::detectCores() %/% 2, 1) 
+  )
+
+cat("\nFirst few GLM-integrated scores:\n")
+print(head(predicted_scores_GLM))
+```
+
+#### Random Forest (RF)**
+Random Forest is an ensemble method using multiple decision trees, generally very robust.
+```{r train_rf, message=FALSE, warning=FALSE}
+predicted_scores_RF <-
+  integrate_ppi_scores_and_train(
+    raw_score_df = rawScore_matrix,
+    response_vector = rawResponse_vector,
+    model_method = "rf", # Random Forest
+    num_cores = ifelse(interactive(), parallel::detectCores() %/% 2, 1)
+  )
+cat("\nFirst few Random Forest-integrated scores:\n")
+print(head(predicted_scores_RF))
+```
+
+#### Support Vector Machine (SVM) with Radial Basis Function Kernel**
+SVMs find a hyperplane that best separates classes in the feature space.
+```{r train_svm, message=FALSE, warning=FALSE}
+predicted_scores_SVM <-
+  integrate_ppi_scores_and_train(
+    raw_score_df = rawScore_matrix,
+    response_vector = rawResponse_vector,
+    model_method = "svmRadial", # SVM with RBF kernel
+    num_cores = ifelse(interactive(), parallel::detectCores() %/% 2, 1)
+  )
+cat("\nFirst few SVM-integrated scores:\n")
+print(head(predicted_scores_SVM))
+```
+The output of `integrate_ppi_scores_and_train` is a vector of predicted probabilities (or scores) for each PPI, indicating the likelihood of interaction.
+
+### Evaluating Model Performance with ROC Curves
+To assess how well our trained models perform, we can use Receiver Operating Characteristic (ROC) curves. An ROC curve plots the True Positive Rate against the False Positive Rate at various threshold settings. The Area Under the Curve (AUC) is a common metric for model comparison – higher AUC means better performance.
+
+We use the `benchmark_ppi_score()` function, comparing the model's predicted scores against our `ppiTrain` reference set.
+
+```{r benchmark_models_roc}
+list_ROC_objects <- list() # To store ROC objects for plotting
+
+# Ensure PPI vector matches the scores
+ppi_vector_for_benchmark <- rawScorePPI_features$PPI
+
+list_ROC_objects[["GLM"]] <-
+  benchmark_ppi_score(
+    ppi_vector = ppi_vector_for_benchmark,
+    score_vector = predicted_scores_GLM,
+    reference_interactome = ppiTrain # Our TP/TN list
+  )
+
+list_ROC_objects[["RandomForest"]] <-
+  benchmark_ppi_score(
+    ppi_vector = ppi_vector_for_benchmark,
+    score_vector = predicted_scores_RF,
+    reference_interactome = ppiTrain
+  )
+
+list_ROC_objects[["SVM"]] <-
+  benchmark_ppi_score(
+    ppi_vector = ppi_vector_for_benchmark,
+    score_vector = predicted_scores_SVM,
+    reference_interactome = ppiTrain
+  )
+
+# Plot multiple ROC curves together
+plot_multiple_roc(roc_object_list = list_ROC_objects, plot_title = "Model Performance Comparison (ROC)")
+```
+The plot allows you to visually compare the performance of the different machine learning models. You can choose the model that performs best on your data (often Random Forest or SVM show strong performance, but GLM can be competitive and faster).
+
+# Using the SMED Scores
+
+The final output from the `integrate_ppi_scores_and_train` function (e.g., `predicted_scores_RF`) is a named vector where names are the PPIs (ProteinA_ProteinB) and values are the integrated SMED scores. Higher scores indicate a higher confidence in the interaction.
+
+You now have a ranked list of potential PPIs! What to do next?
+
+1.  **Select a Model:** Based on the ROC analysis, choose the model (GLM, RF, SVM, etc.) that gives the best performance for your data.
+2.  **Filter High-Confidence Interactions:** You can set a score threshold to obtain a list of high-confidence PPIs. The choice of threshold depends on your desired balance between precision and recall. Examining the ROC curve can help inform this decision.
+    ```{r example_filtering_scores}
+    # Example: Using Random Forest scores
+    final_smed_scores <- data.frame(
+      PPI = rawScorePPI_features$PPI,
+      Score = predicted_scores_RF # Or scores from your chosen model
+    )
+    
+    # Sort by score in descending order
+    final_smed_scores <- final_smed_scores[order(-final_smed_scores$Score), ]
+    
+    cat("Top predicted PPIs by Random Forest:\n")
+    print(head(final_smed_scores))
+    
+    # Example: Filter for scores above a certain threshold (e.g., 0.8)
+    high_confidence_ppis <- final_smed_scores[final_smed_scores$Score > 0.8, ]
+    cat("\nNumber of PPIs with RF score > 0.8:", nrow(high_confidence_ppis), "\n")
+    # print(head(high_confidence_ppis))
+    ```
+3.  **Protein Complex Prediction (Clustering):** The list of high-confidence PPIs can be used as input for network clustering algorithms to identify putative protein complexes. Popular algorithms include MCL (Markov Clustering) [2], ClusterONE [3], and others. These tools typically take a network (list of interacting pairs, optionally with weights/scores) and group densely connected proteins.
+
+# Conclusion
+
+`SMED` provides a comprehensive toolkit for predicting protein-protein interactions from co-elution data. By systematically filtering data, calculating diverse co-elution metrics, and integrating these using supervised machine learning, `SMED` aims to provide robust and accurate interaction predictions. These predictions can then serve as a valuable starting point for further biological investigation and complex discovery.
+
+
+# Reference
+
+[1] Havugimana, P. C., Hart, G. T., Nepusz, T., Yang, H., Turinsky, A. L., Li, Z., ... & Emili, A. (2012). A census of human soluble protein complexes. *Cell*, *150*(5), 1068-1081. [https://doi.org/10.1016/j.cell.2012.08.011](https://doi.org/10.1016/j.cell.2012.08.011)
+
+[2] CRAN page for `MCL` package: [https://cran.r-project.org/package=MCL](https://cran.r-project.org/package=MCL) or the original MCL software page.
+
+[3] Nepusz, T., Yu, H., & Paccanaro, A. (2012). Detecting overlapping protein complexes in protein-protein interaction networks. *Nature Methods*, *9*(5), 471-472. [https://www.nature.com/articles/nmeth.1938](https://www.nature.com/articles/nmeth.1938)
+)
+
+
+```{r}
+sessionInfo()
+```
+
