@@ -1,3 +1,18 @@
+#' Plot Multiple ROC Curves
+#'
+#' This function plots multiple ROC curves on a single plot for comparison.
+#'
+#' @param listObjs A list of ROC objects (from `pROC::roc`).
+#' @param sn Character title for the plot.
+#' @param colorplatte Character vector of colors for the curves.
+#' @param txtX x-coordinate for the legend text.
+#' @param txtY y-coordinate for the legend text.
+#'
+#' @return None (invokes a plot).
+#' @importFrom pROC smooth plot.roc lines.roc auc
+#' @importFrom RColorBrewer brewer.pal
+#' @importFrom graphics text
+#' @export
 PlotROCobjs <- function(
     listObjs, 
     sn, 
@@ -6,14 +21,13 @@ PlotROCobjs <- function(
     txtX = 0.55, 
     txtY = 0.60
   ){
-  library(pROC)
   numROC <-
     length(listObjs)
   a <- 0
   for(i in seq(numROC)){
     a <- a + 1
     if(i == 1){
-      plot.roc(smooth(listObjs[[1]]),
+      pROC::plot.roc(pROC::smooth(listObjs[[1]]),
                legacy.axes = TRUE,
                identity = FALSE,
                xlim = c(1, 0),
@@ -21,14 +35,14 @@ PlotROCobjs <- function(
                ylab = "TPR(sensitivity)", 
                main = sn,
                col = colorplatte[i])
-      text(txtX, txtY, adj = c(0,1), "Sample (AUC)")
+      graphics::text(txtX, txtY, adj = c(0,1), "Sample (AUC)")
     }else{
-      lines.roc(smooth(listObjs[[i]]), col = colorplatte[i])
+      pROC::lines.roc(pROC::smooth(listObjs[[i]]), col = colorplatte[i])
     }
-    text(txtX, 
+    graphics::text(txtX, 
          txtY - 0.07*a, 
          adj = c(0, 1),
-         paste0(names(listObjs)[i], ": ", sprintf("%.3f", auc(listObjs[[i]]))), 
+         paste0(names(listObjs)[i], ": ", sprintf("%.3f", pROC::auc(listObjs[[i]]))), 
          col = colorplatte[i] )
   }
 }

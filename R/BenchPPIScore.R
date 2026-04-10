@@ -1,3 +1,17 @@
+#' Benchmark PPI Scores using ROC
+#'
+#' This function evaluates the performance of PPI scores against gold standard
+#' True Positive (TP) and True Negative (TN) interactions using ROC analysis.
+#'
+#' @param ppi Character vector of PPI strings.
+#' @param score Numeric vector of scores associated with `ppi`.
+#' @param refInt A list with 'TP' and 'TN' data frames for benchmarking.
+#'
+#' @return A `pROC::roc` object.
+#' @importFrom pROC roc
+#' @importFrom dplyr filter
+#' @importFrom magrittr %>%
+#' @export
 BenchPPIScore <- function(ppi, score, refInt){
   if(length(ppi) == length(score)){
     prt <- 
@@ -6,7 +20,7 @@ BenchPPIScore <- function(ppi, score, refInt){
       lapply(refInt, function(raw){
         dat <-
           raw %>% 
-            filter((`InteractorA` %in% prt)&(`InteractorB` %in% prt))
+            dplyr::filter((`InteractorA` %in% prt)&(`InteractorB` %in% prt))
         return(dat)
       })
     respons <-
@@ -21,3 +35,4 @@ BenchPPIScore <- function(ppi, score, refInt){
     stop("PPI and Score lengths don't match!")
   }
 }
+

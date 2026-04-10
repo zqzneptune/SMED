@@ -1,3 +1,14 @@
+#' Calculate CoApex Score
+#'
+#' This function calculates the CoApex score between proteins based on identifying
+#' the fraction (apex) where were each protein reaches its maximum intensity.
+#'
+#' @param rawMat A numeric matrix of protein elution profiles (proteins as rows, fractions as columns).
+#' @param n_fracs Minimum number of fractions a protein must be present in. Default is 0.
+#' @param top_ppi Maximum number of PPIs to return. Default is 20000.
+#'
+#' @return A data frame with PPI pairs and their `normCoApex` scores.
+#' @export
 ScoreCoApex <- function(rawMat, n_fracs = 0, top_ppi = 20000){
   if("matrix" %in% class(rawMat)){
     mat <-
@@ -6,26 +17,10 @@ ScoreCoApex <- function(rawMat, n_fracs = 0, top_ppi = 20000){
       FilterMat(mat, n_fracs = n_fracs)
     fmat[is.na(fmat)] <- 0
     # Only 1, or 2 occurrences apply
-    apexPrt <-
-      apply(fmat, 1, function(x){
-        x[is.na(x)] <- 0
-        valMax <-
-          max(x, na.rm = TRUE)
-        posMax <-
-          seq_along(x)[x == valMax]
-        if(length(posMax) == 1){
-          return(posMax)
-          
-        }else if(length(posMax) == 2){
-          if(posMax[2]-posMax[1] <= 2){
-            return(mean(posMax))
-          }else{
-            return(NA)
-          }
-        }else{
-          return(NA)
-        }
-      })
+    first_peak <- max.col(fmat, ties.method = "first")
+    last_peak <- max.col(fmat, ties.method = "last")
+    apexPrt <- ifelse(last_peak - first_peak <= 2, (first_peak + last_peak) / 2, NA)
+    names(apexPrt) <- rownames(fmat)
     apexPrt <-
       apexPrt[!is.na(apexPrt)]
     pairwise_diff <- 
@@ -34,21 +29,26 @@ ScoreCoApex <- function(rawMat, n_fracs = 0, top_ppi = 20000){
       GetPrtPPI(names(apexPrt))
     rawCoApex <-
       abs(pairwise_diff[lower.tri(pairwise_diff, diag = FALSE)])
-    rawPPI[, "normCoApex"] <-
-      (max(rawCoApex)-rawCoApex)/(max(rawCoApex) - min(rawCoApex))
-    finalPPI <-
-      rawPPI[rev(order(rawPPI$normCoApex)), ]
+    
+    # Check for constant peaks to avoid division by zero
+    diff_max_min <- max(rawCoApex) - min(rawCoApex)
+    if(diff_max_min == 0){
+      rawPPI[, normCoApex := 1]
+    } else {
+      rawPPI[, normCoApex := (max(rawCoApex)-rawCoApex)/diff_max_min]
+    }
+
+    finalPPI <- rawPPI[order(-normCoApex)]
     
     if(nrow(finalPPI) > top_ppi){
-      datPPI <-
-        finalPPI[1:top_ppi, ]
+      datPPI <- finalPPI[1:top_ppi, ]
     }else{
-      datPPI <-
-        finalPPI
+      datPPI <- finalPPI
     }
-    return(datPPI[, c("PPI", "normCoApex")])
+    return(datPPI[, .(InteractorA, InteractorB, normCoApex)])
   }else{
     stop("Not matrix.")
   }
 }
+
 

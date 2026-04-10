@@ -1,11 +1,21 @@
+#' Generate Pairwise PPI Strings from Protein List
+#'
+#' This function generates all possible pairwise interactions (PPI strings)
+#' from a list of protein IDs.
+#'
+#' @param prt A character vector of protein IDs.
+#'
+#' @return A data.table with columns `InteractorA` and `InteractorB`.
+#' @importFrom RcppAlgos comboGeneral
+#' @import data.table
+#' @export
 GetPrtPPI <- function(prt){
   prt <-
     sort(prt)
   s <-
-    data.frame(RcppAlgos::comboGeneral(prt, 2))
+    data.table::as.data.table(RcppAlgos::comboGeneral(prt, 2))
   colnames(s) <-
     c("InteractorA", "InteractorB")
-  s[, "PPI"] <-
-    paste(s[, 1], s[, 2], sep = "~")
   return(s)
 }
+

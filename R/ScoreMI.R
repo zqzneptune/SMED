@@ -1,5 +1,17 @@
+#' Calculate Mutual Information Score
+#'
+#' This function calculates the Mutual Information (MI) between proteins based
+#' on their discretized elution profiles.
+#'
+#' @param rawMat A numeric matrix of protein elution profiles (proteins as rows, fractions as columns).
+#' @param n_fracs Minimum number of fractions a protein must be present in. Default is 0.
+#' @param cutoff Minimum MI score to retain a PPI. Default is 0.5.
+#' @param top_n Maximum number of PPIs to return. If NULL, cutoff is used.
+#'
+#' @return A data frame with PPI pairs and their `MI` scores.
+#' @importFrom infotheo discretize mutinformation
+#' @export
 ScoreMI <- function(rawMat, n_fracs = 0, cutoff = 0.5, top_n = NULL){
-  library(infotheo)
   mat <-
     rawMat[sort(rownames(rawMat)), ]
 
@@ -9,31 +21,18 @@ ScoreMI <- function(rawMat, n_fracs = 0, cutoff = 0.5, top_n = NULL){
   fmat[is.na(fmat)] <- 0
 
   gmat <-
-    discretize(t(fmat))
+    infotheo::discretize(t(fmat))
 
   miMat <-
-    mutinformation(gmat, method = "emp")
+    infotheo::mutinformation(gmat, method = "emp")
   rawPPI <-
     GetPrtPPI(rownames(miMat))
-  rawPPI[, "MI"] <-
-    miMat[lower.tri(miMat, diag = FALSE)]
+  rawPPI[, MI := miMat[lower.tri(miMat, diag = FALSE)]]
   if(is.null(top_n)){
-    finalPPI <-
-      rawPPI[rawPPI$MI >= cutoff, ]
+    finalPPI <- rawPPI[MI >= cutoff]
   }else{
-    finalPPI <-
-      rawPPI[order(-rawPPI$MI), ][1:top_n, ]
+    finalPPI <- head(rawPPI[order(-MI)], top_n)
   }
-  return(finalPPI[, c("PPI", "MI")])
-  # finalPPI <-
-  #   rawPPI[rev(order(rawPPI$MI)), ]
-  #
-  # if(nrow(finalPPI) > top_ppi){
-  #   datPPI <-
-  #     finalPPI[1:top_ppi, ]
-  # }else{
-  #   datPPI <-
-  #     finalPPI
-  # }
-  # return(datPPI[, c("PPI", "MI")])
+  return(finalPPI[, .(InteractorA, InteractorB, MI)])
 }
+
