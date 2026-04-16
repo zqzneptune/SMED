@@ -1,26 +1,33 @@
 Package: SMED
 Type: Package
 Title: Statistical Modelling of co-elution Mass Spectrometry Data
-Version: 1.0.0
-Author: Qingzhou Zhang
-Maintainer: Qingzhou Zhang <zqzneptune@hotmail.com>
+Version: 1.1.0
+Authors@R: person("Qingzhou", "Zhang", 
+                  email = "zqzneptune@hotmail.com", 
+                  role = c("aut", "cre"))
 Description: Assigning probability scores to co-eluted proteins from biochemical
     fractionation mass spectrometry (BF-MS) experiments to infer 
-    protein-protein interactions.
+    protein-protein interactions. The package integrates information-theoretic
+    and statistical co-elution metrics using advanced machine learning models
+    like XGBoost and Random Forest.
 License: MIT + file LICENSE
+URL: https://github.com/zqzneptune/SMED
+BugReports: https://github.com/zqzneptune/SMED/issues
 Encoding: UTF-8
 LazyData: true
+RoxygenNote: 7.3.3
+Depends: 
+    R (>= 4.0.0)
 Imports:
+    future.apply,
+    progressr,
+    data.table,
+    matrixStats,
     infotheo,
-    proxy,
     ptw,
     caret,
-    caretEnsemble,
     pROC,
-    Hmisc,
     RcppAlgos,
-    doParallel,
-    progress,
     dplyr,
     tidyr,
     magrittr,
@@ -31,5 +38,9 @@ Imports:
     ggridges,
     ggupset,
     RColorBrewer
-RoxygenNote: 7.3.3
-
+Suggests: 
+    knitr,
+    rmarkdown,
+    testthat
+VignetteBuilder: 
+    knitr

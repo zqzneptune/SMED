@@ -4,7 +4,7 @@
 \alias{IntegrateScore}
 \title{Integrate Scores using a Single ML Model}
 \usage{
-IntegrateScore(rawScore, rawResponse, fnM)
+IntegrateScore(rawScore, rawResponse, fnM, seed = 100)
 }
 \arguments{
 \item{rawScore}{A numeric matrix of elution-based scores (exclusive of PPI IDs).}
@@ -12,6 +12,8 @@ IntegrateScore(rawScore, rawResponse, fnM)
 \item{rawResponse}{A character vector of "Y" and "N" labels for training.}
 
 \item{fnM}{Character vector specifying the machine learning method.}
+
+\item{seed}{Optional seed for reproducibility. Default is 100.}
 }
 \value{
 A numeric vector of integrated scores.

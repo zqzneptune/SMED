@@ -4,7 +4,14 @@
 \alias{ScorePCCN}
 \title{Calculate PCCN Score}
 \usage{
-ScorePCCN(rawMat, n_fracs = 2, rept = 10, cutoff = 0.5, top_n = NULL)
+ScorePCCN(
+  rawMat,
+  n_fracs = 2,
+  rept = 10,
+  cutoff = 0.5,
+  top_n = NULL,
+  seed = NULL
+)
 }
 \arguments{
 \item{rawMat}{A numeric matrix of protein elution profiles (proteins as rows, fractions as columns).}
@@ -16,9 +23,11 @@ ScorePCCN(rawMat, n_fracs = 2, rept = 10, cutoff = 0.5, top_n = NULL)
 \item{cutoff}{Minimum PCCN score to retain a PPI. Default is 0.5.}
 
 \item{top_n}{Maximum number of PPIs to return. If NULL, cutoff is used.}
+
+\item{seed}{Optional seed for reproducibility.}
 }
 \value{
-A data frame with PPI pairs and their `PCCN` scores.
+A data.table with PPI pairs and their `PCCN` scores.
 }
 \description{
 This function calculates the Poisson correlation coefficient network (PCCN)

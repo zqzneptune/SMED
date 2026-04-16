@@ -1,0 +1,28 @@
+SMED Example Data: Havugimana et al. (2012)
+-------------------------------------------
+
+This directory contains protein elution profiles from the seminal study:
+"A Census of Human Soluble Protein Complexes" (Havugimana et al., Cell 2012).
+
+File Naming Conventions:
+- [Instrument]_[CellFraction]_[Method].csv
+
+Instruments:
+- LTQ: Linear Trap Quadrupole mass spectrometer.
+- Orbitrap: High-resolution Orbitrap mass spectrometer.
+
+Cell Fractions:
+- HeLaCE: HeLa Cytoplasmic Extract.
+- HeLaNE: HeLa Nuclear Extract.
+- 293NE: HEK293 Nuclear Extract.
+
+Chromatography Methods:
+- HCW: Hydrophobic Chromatography (Phenyl-Sepharose).
+- TCS: Three-column System (Ion exchange, etc.).
+- WAX: Weak Anion Exchange.
+- SAF: Strong Anion Exchange.
+- IEF: Isoelectric Focusing (pH ranges 3-10 or 5-8).
+- SGF: Size Exclusion (Superose 6).
+
+Reference Data:
+- RefComplexes.txt: Semi-colon separated list of protein complexes for benchmarking.

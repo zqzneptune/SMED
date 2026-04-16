@@ -4,10 +4,12 @@
 \alias{PlotEluteRidge}
 \title{Plot Elution Profiles as Ridge Plot}
 \usage{
-PlotEluteRidge(dat)
+PlotEluteRidge(dat, sort_apex = TRUE)
 }
 \arguments{
 \item{dat}{A numeric matrix or data frame of protein elution profiles.}
+
+\item{sort_apex}{Logical; if TRUE, proteins are sorted by their apex (peak fraction).}
 }
 \value{
 A ggplot object.

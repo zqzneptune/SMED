@@ -4,7 +4,13 @@
 \alias{RetainElutionProtein}
 \title{Identify High-Confidence Eluting Proteins}
 \usage{
-RetainElutionProtein(m, nmad, n_boot = 1000)
+RetainElutionProtein(
+  m,
+  nmad,
+  n_boot = 1000,
+  metric = function(x) sum(x^2),
+  seed = NULL
+)
 }
 \arguments{
 \item{m}{A numeric matrix of elution profiles.}
@@ -13,6 +19,11 @@ RetainElutionProtein(m, nmad, n_boot = 1000)
 set the threshold.}
 
 \item{n_boot}{Number of bootstrap repetitions. Default is 1000.}
+
+\item{metric}{Function to calculate elution intensity (e.g., `sum`, `max`). 
+Default is `function(x) sum(x^2)`.}
+
+\item{seed}{Optional seed for reproducibility.}
 }
 \value{
 A character vector of protein IDs that pass the filter.

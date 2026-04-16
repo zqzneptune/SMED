@@ -4,13 +4,7 @@
 \alias{PlotROCobjs}
 \title{Plot Multiple ROC Curves}
 \usage{
-PlotROCobjs(
-  listObjs,
-  sn,
-  colorplatte = RColorBrewer::brewer.pal(8, "Dark2"),
-  txtX = 0.55,
-  txtY = 0.6
-)
+PlotROCobjs(listObjs, sn, colorplatte = RColorBrewer::brewer.pal(8, "Dark2"))
 }
 \arguments{
 \item{listObjs}{A list of ROC objects (from `pROC::roc`).}
@@ -18,14 +12,10 @@ PlotROCobjs(
 \item{sn}{Character title for the plot.}
 
 \item{colorplatte}{Character vector of colors for the curves.}
-
-\item{txtX}{x-coordinate for the legend text.}
-
-\item{txtY}{y-coordinate for the legend text.}
 }
 \value{
-None (invokes a plot).
+A ggplot object.
 }
 \description{
-This function plots multiple ROC curves on a single plot for comparison.
+This function plots multiple ROC curves on a single plot for comparison using ggplot2.
 }

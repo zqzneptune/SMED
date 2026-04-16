@@ -14,7 +14,7 @@ ScoreDICE(rawMat, n_fracs = 0, top_ppi = 20000)
 \item{top_ppi}{Maximum number of PPIs to return. Default is 20000.}
 }
 \value{
-A data frame with PPI pairs and their `DICE` scores.
+A data.table with `InteractorA`, `InteractorB`, and `DICE` scores.
 }
 \description{
 This function calculates the DICE coefficient between proteins based on their

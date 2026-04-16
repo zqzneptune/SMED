@@ -14,9 +14,9 @@ ScoreCoApex(rawMat, n_fracs = 0, top_ppi = 20000)
 \item{top_ppi}{Maximum number of PPIs to return. Default is 20000.}
 }
 \value{
-A data frame with PPI pairs and their `normCoApex` scores.
+A data.table with `InteractorA`, `InteractorB`, and `normCoApex` scores.
 }
 \description{
 This function calculates the CoApex score between proteins based on identifying
-the fraction (apex) where were each protein reaches its maximum intensity.
+the fraction (apex) where each protein reaches its maximum intensity.
 }

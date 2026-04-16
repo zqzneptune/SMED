@@ -8,10 +8,11 @@
 #' @param cutoff Minimum MI score to retain a PPI. Default is 0.5.
 #' @param top_n Maximum number of PPIs to return. If NULL, cutoff is used.
 #'
-#' @return A data frame with PPI pairs and their `MI` scores.
+#' @return A data.table with `InteractorA`, `InteractorB`, and `MI` scores.
 #' @importFrom infotheo discretize mutinformation
+#' @import data.table
 #' @export
-ScoreMI <- function(rawMat, n_fracs = 0, cutoff = 0.5, top_n = NULL){
+ScoreMI <- function(rawMat, n_fracs = 0, cutoff = 0.5, top_n = NULL, ...){
   mat <-
     rawMat[sort(rownames(rawMat)), ]
 
@@ -25,9 +26,12 @@ ScoreMI <- function(rawMat, n_fracs = 0, cutoff = 0.5, top_n = NULL){
 
   miMat <-
     infotheo::mutinformation(gmat, method = "emp")
+    
   rawPPI <-
-    GetPrtPPI(rownames(miMat))
+    GetPrtPPI(rownames(fmat))
+    
   rawPPI[, MI := miMat[lower.tri(miMat, diag = FALSE)]]
+  
   if(is.null(top_n)){
     finalPPI <- rawPPI[MI >= cutoff]
   }else{

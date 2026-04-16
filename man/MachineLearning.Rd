@@ -4,7 +4,14 @@
 \alias{MachineLearning}
 \title{Integrate Scores via Machine Learning}
 \usage{
-MachineLearning(rawScore, refIntTrain, fnMachine)
+MachineLearning(
+  rawScore,
+  refIntTrain,
+  fnMachine,
+  seed = 100,
+  tuneLength = 3,
+  ...
+)
 }
 \arguments{
 \item{rawScore}{A data frame containing PPI pairs and their elution-based scores.}
@@ -12,9 +19,15 @@ MachineLearning(rawScore, refIntTrain, fnMachine)
 \item{refIntTrain}{A list containing 'TP' and 'TN' data frames for training.}
 
 \item{fnMachine}{Character vector of machine learning methods (e.g., "xgbTree", "rf").}
+
+\item{seed}{Optional seed for reproducibility. Default is 100.}
+
+\item{tuneLength}{Tuning length for caret::train. Default is 3.}
+
+\item{...}{Additional arguments passed to caret::train.}
 }
 \value{
-A data frame with the original scores and an additional 'SMED' column for the integrated score.
+A data.table with the original scores and an additional 'SMED' column for the integrated score.
 }
 \description{
 This function integrates multiple elution-based scores using machine learning

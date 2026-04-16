@@ -1,41 +1,59 @@
-#' Generate dummy data for SMED package
-#' 
+#' Generate dummy data for SMED package using real subsets
+#'
 #' This script generates `dummy_elution_matrix` and `dummy_train_complexes`
-#' to be used in package examples and testing.
+#' by subsetting real data from the Havugimana et al. (2012) dataset
+#' included in the package. This ensures that example data is representative
+#' of real biochemical fractionation mass spectrometry (BF-MS) experiments.
 
-# 1. Generate elution matrix
-# 10 proteins, 20 fractions
-set.seed(42)
-proteins <- paste0("Prot", 1:10)
-fractions <- paste0("Frac", 1:20)
-dummy_elution_matrix <- matrix(
-  rpois(200, lambda = 10), 
-  nrow = 10, 
-  ncol = 20,
-  dimnames = list(proteins, fractions)
-)
-# Add some co-elution patterns (Prot1 and Prot2 co-elute)
-dummy_elution_matrix["Prot1", ] <- dummy_elution_matrix["Prot1", ] + c(rep(0, 5), rep(50, 5), rep(0, 10))
-dummy_elution_matrix["Prot2", ] <- dummy_elution_matrix["Prot2", ] + c(rep(0, 5), rep(45, 5), rep(0, 10))
+# Load required libraries
+library(data.table)
 
-# 2. Generate training complexes
-# Using the GetComplexPPI function from the package
-# We need to load it or define it here if the package isn't installed.
-# For simplicity, we just create the output structure directly or load all.
-# Since we are in the package dir, we can source it.
-source("R/GetComplexPPI.R")
-# RcppAlgos is needed for GetComplexPPI
-library(RcppAlgos)
+# 1. Load and subset elution matrix
+# We use LTQ_HeLaCE_WAX.csv as a representative sample
+ex_path <- "inst/exdata/Havugimana_etal_2012/LTQ_HeLaCE_WAX.csv"
 
-example_complexes <- list(
-  Cpc1 = c("Prot1", "Prot2", "Prot3"),
-  Cpc2 = c("Prot4", "Prot5")
-)
+# Read CSV (first column is Protein ID, others are fractions)
+# We use fread for efficiency
+raw_data <- fread(ex_path)
 
-dummy_train_complexes <- GetComplexPPI(example_complexes)
+# Take a subset of 100 proteins to keep dummy data small but representative
+# This prevents the package from becoming too large while maintaining complexity
+dummy_elution_matrix <- as.matrix(raw_data[1:100, -1])
+rownames(dummy_elution_matrix) <- raw_data[[1]][1:100] # Use the first column as protein IDs
 
-# 3. Save to data/
+# 2. Load and subset reference complexes
+ref_path <- "inst/exdata/Havugimana_etal_2012/RefComplexes.txt"
+
+# Read tab-separated text file
+ref_lines <- readLines(ref_path)
+ref_list <- strsplit(ref_lines, "\t")
+names(ref_list) <- paste0("Complex_", 1:length(ref_list))
+
+# Filter complexes to only those containing proteins in our subset
+subset_proteins <- rownames(dummy_elution_matrix)
+filtered_ref_list <- lapply(ref_list, function(x) intersect(x, subset_proteins))
+
+# Keep only complexes with at least 2 proteins in the subset
+filtered_ref_list <- filtered_ref_list[sapply(filtered_ref_list, length) >= 2]
+
+# 3. Convert to PPI pairs using GetComplexPPI
+# Note: we source the function if SMED isn't loaded/installed
+if (!exists("GetComplexPPI")) {
+  source("R/GetComplexPPI.R")
+}
+
+# RcppAlgos is required by GetComplexPPI
+if (!requireNamespace("RcppAlgos", quietly = TRUE)) {
+  stop("RcppAlgos package is required to generate training PPIs.")
+}
+
+# Generate the training PPI object (TP and TN)
+# We take the first 10 identified complexes for the dummy training set
+dummy_train_complexes <- GetComplexPPI(filtered_ref_list[1:min(10, length(filtered_ref_list))])
+
+# 4. Save to data/ directory
+# These objects will be available via data(dummy_elution_matrix) etc.
 save(dummy_elution_matrix, file = "data/dummy_elution_matrix.rda")
 save(dummy_train_complexes, file = "data/dummy_train_complexes.rda")
 
-message("Dummy data generated and saved to data/")
+message("Execution complete: Dummy data updated using a subset of Havugimana 2012 data.")

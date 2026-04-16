@@ -16,7 +16,7 @@ ScoreMI(rawMat, n_fracs = 0, cutoff = 0.5, top_n = NULL)
 \item{top_n}{Maximum number of PPIs to return. If NULL, cutoff is used.}
 }
 \value{
-A data frame with PPI pairs and their `MI` scores.
+A data.table with `InteractorA`, `InteractorB`, and `MI` scores.
 }
 \description{
 This function calculates the Mutual Information (MI) between proteins based

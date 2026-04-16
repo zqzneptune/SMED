@@ -18,18 +18,42 @@
 #' @export
 SMED <- function(mRaw, trainInt, fnMachine = "xgbTree", ...){
   
-  # 1. Calculate elution-based scores
+  # 1. Input Validation
+  if (!is.matrix(mRaw)) {
+    if (is.data.frame(mRaw)) {
+      message("Warning: mRaw passed as data.frame, converting to matrix.")
+      mRaw <- as.matrix(mRaw)
+    } else {
+      stop("mRaw must be a numeric matrix (proteins as rows, fractions as columns).")
+    }
+  }
+  
+  if (is.null(rownames(mRaw))) {
+    stop("mRaw must have row names specifying Protein IDs.")
+  }
+  
+  if (!is.numeric(mRaw)) {
+    stop("mRaw must be a numeric matrix.")
+  }
+  
+  if (!is.list(trainInt) || !all(c("TP", "TN") %in% names(trainInt))) {
+    stop("trainInt must be a list with 'TP' and 'TN' elements.")
+  }
+  
+  # 2. Calculate elution-based scores
   message("Identifying potential PPIs and calculating elution-based scores...")
+  # ElutionScore will handle its own match.arg for methods
   rawScore <- ElutionScore(mRaw, ...)
   
-  # 2. Integrate scores via Machine Learning integration
+  # 3. Integrate scores via Machine Learning integration
   message("Integrating scores using Machine Learning models: ", paste(fnMachine, collapse = ", "))
   # MachineLearning logic is defined in R/MachineLearning.R
   datSMED <- MachineLearning(rawScore = rawScore,
                              refIntTrain = trainInt,
-                             fnMachine = fnMachine)
+                             fnMachine = fnMachine,
+                             ...) # Pass dots for tuning/seeding
   
-  # 3. Format output as requested: InteractorA, InteractorB, Score
+  # 4. Format output as requested: InteractorA, InteractorB, Score
   message("Formatting final result as requested (InteractorA, InteractorB, Score)...")
   
   final_df <- datSMED[, .(InteractorA, InteractorB, Score = SMED)]

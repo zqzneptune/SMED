@@ -6,13 +6,13 @@
 #' @param rawScore A numeric matrix of elution-based scores (exclusive of PPI IDs).
 #' @param rawResponse A character vector of "Y" and "N" labels for training.
 #' @param fnM Character vector specifying the machine learning method.
+#' @param seed Optional seed for reproducibility. Default is 100.
 #'
 #' @return A numeric vector of integrated scores.
 #' @importFrom caret preProcess trainControl train twoClassSummary
-#' @importFrom parallel makePSOCKcluster stopCluster detectCores
-#' @importFrom doParallel registerDoParallel
+#' @import data.table
 #' @export
-IntegrateScore <- function(rawScore, rawResponse, fnM){
+IntegrateScore <- function(rawScore, rawResponse, fnM, seed = 100){
   # RF Speed Hack
   modelMethod <- fnM
   if(fnM == "rf"){
@@ -22,17 +22,7 @@ IntegrateScore <- function(rawScore, rawResponse, fnM){
   
   message("Training model: ", modelMethod)
   
-  # 1. Parallel Backend Setup (Adaptive)
-  n_cores <- parallel::detectCores() - 1
-  if (is.na(n_cores) || n_cores < 1) n_cores <- 1
-  
-  if (n_cores > 1) {
-    cl <- parallel::makePSOCKcluster(n_cores)
-    doParallel::registerDoParallel(cl)
-    on.exit(parallel::stopCluster(cl))
-  }
-  
-  # 2. Optimized Preprocessing
+  # 1. Optimized Preprocessing
   preProModel <-
     caret::preProcess(rawScore, method = c("medianImpute", "center", "scale"))
   
@@ -49,7 +39,7 @@ IntegrateScore <- function(rawScore, rawResponse, fnM){
   training <-
     trainData[!is.na(trainData$Response), , drop = FALSE]
   
-  set.seed(100)
+  if (!is.null(seed)) set.seed(seed)
   fitControl <-
     caret::trainControl(
       method = "repeatedcv",
@@ -61,15 +51,17 @@ IntegrateScore <- function(rawScore, rawResponse, fnM){
       allowParallel = TRUE
     )
   
-  set.seed(100)
+  if (!is.null(seed)) set.seed(seed)
   suppressMessages(models <-
                      caret::train(`Response` ~ .,
                            data = training,
                            method = modelMethod,
                            trControl = fitControl))
   
+  message("Predicting...")
   preds <-
     predict(models, newdata = prepData, type = "prob")
   rm(models)
+  gc()
   return(preds[, "Y"])
 }
