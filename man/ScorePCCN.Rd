@@ -10,7 +10,8 @@ ScorePCCN(
   rept = 10,
   cutoff = 0.5,
   top_n = NULL,
-  seed = NULL
+  seed = NULL,
+  ...
 )
 }
 \arguments{
@@ -25,6 +26,8 @@ ScorePCCN(
 \item{top_n}{Maximum number of PPIs to return. If NULL, cutoff is used.}
 
 \item{seed}{Optional seed for reproducibility.}
+
+\item{...}{Additional arguments (not currently used).}
 }
 \value{
 A data.table with PPI pairs and their `PCCN` scores.

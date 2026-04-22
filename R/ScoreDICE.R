@@ -6,6 +6,7 @@
 #' @param rawMat A numeric matrix of protein elution profiles (proteins as rows, fractions as columns).
 #' @param n_fracs Minimum number of fractions a protein must be present in. Default is 0.
 #' @param top_ppi Maximum number of PPIs to return. Default is 20000.
+#' @param ... Additional arguments (not currently used).
 #'
 #' @return A data.table with `InteractorA`, `InteractorB`, and `DICE` scores.
 #' @importFrom arules dissimilarity
@@ -21,19 +22,23 @@ ScoreDICE <- function(rawMat, n_fracs = 0, top_ppi = 20000, ...){
   # Binary matrix for DICE calculation
   binMat <- (fmat > 0)
   
+  # Identify proteins
+  prts <- rownames(fmat)
+  
   diceMat <-
     as.matrix(arules::dissimilarity(binMat, method = "dice"))
+  colnames(diceMat) <- rownames(diceMat) <- prts
   
   # GetPrtPPI returns sorted names
   rawPPI <-
-    GetPrtPPI(rownames(fmat))
+    GetPrtPPI(prts)
     
-  rawPPI[, DICE := diceMat[lower.tri(diceMat, diag = FALSE)]]
+  # Use explicit matching instead of lower.tri to be robust
+  idxA <- match(rawPPI$InteractorA, prts)
+  idxB <- match(rawPPI$InteractorB, prts)
+  rawPPI[, DICE := diceMat[cbind(idxA, idxB)]]
   
-  # arules::dissimilarity produces 1 - dice by default for some methods, 
-  # or distance. Let's ensure it's a similarity score (1-dist if dist).
-  # Dice similarity = 2*|A&B| / (|A|+|B|)
-  # arules dice distance is 1 - similarity.
+  # arules::dissimilarity produces distance (1 - dice similarity)
   rawPPI[, DICE := 1 - DICE]
   
   finalPPI <- rawPPI[order(-DICE)]

@@ -8,7 +8,8 @@ ElutionScore(
   mRaw,
   n_fracs = 2,
   top_ppi = 20000,
-  methods = c("CoApex", "DICE", "MI", "PCCN", "WCC")
+  methods = c("CoApex", "DICE", "MI", "PCCN", "WCC"),
+  ...
 )
 }
 \arguments{
@@ -21,6 +22,8 @@ ElutionScore(
 \item{methods}{Character vector specifying which scoring methods to include. 
 Available options: "CoApex", "DICE", "MI", "PCCN", "WCC". 
 Default includes all five.}
+
+\item{...}{Additional parameters passed to individual scoring functions (e.g., `seed`).}
 }
 \value{
 A data frame containing the aggregated scores for each PPI.

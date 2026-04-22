@@ -12,8 +12,10 @@
 #' data(dummy_elution_matrix)
 #' data(dummy_train_complexes)
 #' # Run SMED with default settings
-#' results <- SMED(dummy_elution_matrix, dummy_train_complexes, fnMachine = "rf", n_fracs = 1, top_ppi = 100)
+#' results <- SMED(dummy_elution_matrix, dummy_train_complexes, 
+#'                 fnMachine = "rf", n_fracs = 1, top_ppi = 100)
 #' head(results)
+#' @importFrom utils head
 #' @import data.table
 #' @export
 SMED <- function(mRaw, trainInt, fnMachine = "xgbTree", ...){
@@ -58,7 +60,9 @@ SMED <- function(mRaw, trainInt, fnMachine = "xgbTree", ...){
   
   final_df <- datSMED[, .(InteractorA, InteractorB, Score = SMED)]
   
-  # Return final formatted data frame
+  # Set class for future S3 methods
+  setattr(final_df, "class", c("SMED_result", class(final_df)))
+  
   return(final_df)
 }
 

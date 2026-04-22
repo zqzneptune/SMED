@@ -10,6 +10,7 @@
 #'
 #' @return A numeric vector of integrated scores.
 #' @importFrom caret preProcess trainControl train twoClassSummary
+#' @importFrom stats predict
 #' @import data.table
 #' @export
 IntegrateScore <- function(rawScore, rawResponse, fnM, seed = 100){

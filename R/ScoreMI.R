@@ -7,9 +7,11 @@
 #' @param n_fracs Minimum number of fractions a protein must be present in. Default is 0.
 #' @param cutoff Minimum MI score to retain a PPI. Default is 0.5.
 #' @param top_n Maximum number of PPIs to return. If NULL, cutoff is used.
+#' @param ... Additional arguments (not currently used).
 #'
 #' @return A data.table with `InteractorA`, `InteractorB`, and `MI` scores.
 #' @importFrom infotheo discretize mutinformation
+#' @importFrom utils head
 #' @import data.table
 #' @export
 ScoreMI <- function(rawMat, n_fracs = 0, cutoff = 0.5, top_n = NULL, ...){

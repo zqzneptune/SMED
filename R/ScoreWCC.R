@@ -7,11 +7,13 @@
 #' @param n_fracs Minimum number of fractions a protein must be present in. Default is 2.
 #' @param cutoff Minimum WCC score to retain a PPI. Default is 0.5.
 #' @param top_n Maximum number of PPIs to return. If NULL, cutoff is used.
+#' @param ... Additional arguments (not currently used).
 #'
 #' @return A data.table with `InteractorA`, `InteractorB`, and `WCC` scores.
 #' @importFrom ptw wcc
 #' @importFrom RcppAlgos comboGeneral
 #' @importFrom future.apply future_lapply
+#' @importFrom utils head
 #' @import data.table
 #' @export
 ScoreWCC <- function(rawMat, n_fracs = 2, cutoff = 0.5, top_n = NULL, ...){

@@ -10,11 +10,13 @@
 #' @param cutoff Minimum PCCN score to retain a PPI. Default is 0.5.
 #' @param top_n Maximum number of PPIs to return. If NULL, cutoff is used.
 #' @param seed Optional seed for reproducibility.
+#' @param ... Additional arguments (not currently used).
 #'
 #' @return A data.table with PPI pairs and their `PCCN` scores.
 #' @importFrom stats rpois cor
 #' @importFrom future.apply future_lapply
 #' @importFrom progressr progressor
+#' @importFrom utils head
 #' @import data.table
 #' @export
 ScorePCCN <- function(rawMat, n_fracs = 2, rept = 10, cutoff = 0.5, top_n = NULL, seed = NULL, ...){

@@ -6,6 +6,7 @@
 #' @param rawMat A numeric matrix of protein elution profiles (proteins as rows, fractions as columns).
 #' @param n_fracs Minimum number of fractions a protein must be present in. Default is 0.
 #' @param top_ppi Maximum number of PPIs to return. Default is 20000.
+#' @param ... Additional arguments (not currently used).
 #'
 #' @return A data.table with `InteractorA`, `InteractorB`, and `normCoApex` scores.
 #' @import data.table
@@ -50,12 +51,15 @@ ScoreCoApex <- function(rawMat, n_fracs = 0, top_ppi = 20000, ...){
     valid_pairs_dt <- GetPrtPPI(valid_proteins)
     
     # Fill in the absolute differences
-    # pairwise_diff is a matrix with rownames/colnames = valid_proteins
-    # We want the values for pairs in valid_pairs_dt
+    # We use explicit matching by names to avoid character matrix indexing issues
+    # pairwise_diff has dimnames = valid_proteins
     
-    # Subsetting matrix with matrix of indices/names
-    idx_matrix <- as.matrix(valid_pairs_dt[, .(InteractorA, InteractorB)])
-    valid_diffs <- pairwise_diff[idx_matrix]
+    # Matching InteractorA and InteractorB to the indices in the matrix
+    idxA <- match(valid_pairs_dt$InteractorA, valid_proteins)
+    idxB <- match(valid_pairs_dt$InteractorB, valid_proteins)
+    
+    # Index the matrix using numeric indices
+    valid_diffs <- pairwise_diff[cbind(idxA, idxB)]
     
     # Normalize diffs: (max - diff) / (max - min) -> 1 is best (0 diff), 0 is worst (max diff)
     diff_max <- max(valid_diffs, na.rm = TRUE)

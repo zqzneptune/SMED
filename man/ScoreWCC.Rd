@@ -4,7 +4,7 @@
 \alias{ScoreWCC}
 \title{Calculate WCC Score}
 \usage{
-ScoreWCC(rawMat, n_fracs = 2, cutoff = 0.5, top_n = NULL)
+ScoreWCC(rawMat, n_fracs = 2, cutoff = 0.5, top_n = NULL, ...)
 }
 \arguments{
 \item{rawMat}{A numeric matrix of protein elution profiles (proteins as rows, fractions as columns).}
@@ -14,6 +14,8 @@ ScoreWCC(rawMat, n_fracs = 2, cutoff = 0.5, top_n = NULL)
 \item{cutoff}{Minimum WCC score to retain a PPI. Default is 0.5.}
 
 \item{top_n}{Maximum number of PPIs to return. If NULL, cutoff is used.}
+
+\item{...}{Additional arguments (not currently used).}
 }
 \value{
 A data.table with `InteractorA`, `InteractorB`, and `WCC` scores.

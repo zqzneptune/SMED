@@ -25,6 +25,7 @@ Main function to infer protein-protein interactions from co-eluted mass spectrom
 data(dummy_elution_matrix)
 data(dummy_train_complexes)
 # Run SMED with default settings
-results <- SMED(dummy_elution_matrix, dummy_train_complexes, fnMachine = "rf", n_fracs = 1, top_ppi = 100)
+results <- SMED(dummy_elution_matrix, dummy_train_complexes, 
+                fnMachine = "rf", n_fracs = 1, top_ppi = 100)
 head(results)
 }

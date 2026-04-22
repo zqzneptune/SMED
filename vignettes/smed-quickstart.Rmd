@@ -1,0 +1,50 @@
+---
+title: "Quickstart Guide to SMED"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Quickstart Guide to SMED}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(SMED)
+```
+
+## Introduction
+
+SMED (Statistical Modelling of co-elution Mass Spectrometry Data) is an R package designed to infer protein-protein interactions (PPIs) from biochemical fractionation mass spectrometry (BF-MS) experiments.
+
+## Quick Start
+
+Here is a basic example of how to use SMED with the internal dummy datasets.
+
+```{r example}
+# Load example data
+data(dummy_elution_matrix)
+data(dummy_train_complexes)
+
+# Run SMED pipeline
+# n_fracs=1 and top_ppi=100 are used for speed in this example
+results <- SMED(dummy_elution_matrix, 
+                dummy_train_complexes, 
+                fnMachine = "rf", 
+                n_fracs = 1, 
+                top_ppi = 100)
+
+# View results
+head(results)
+```
+
+## Session Info
+
+```{r sessionInfo}
+sessionInfo()
+```

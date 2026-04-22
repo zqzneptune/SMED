@@ -4,7 +4,7 @@
 \alias{ScoreDICE}
 \title{Calculate DICE Score}
 \usage{
-ScoreDICE(rawMat, n_fracs = 0, top_ppi = 20000)
+ScoreDICE(rawMat, n_fracs = 0, top_ppi = 20000, ...)
 }
 \arguments{
 \item{rawMat}{A numeric matrix of protein elution profiles (proteins as rows, fractions as columns).}
@@ -12,6 +12,8 @@ ScoreDICE(rawMat, n_fracs = 0, top_ppi = 20000)
 \item{n_fracs}{Minimum number of fractions a protein must be present in. Default is 0.}
 
 \item{top_ppi}{Maximum number of PPIs to return. Default is 20000.}
+
+\item{...}{Additional arguments (not currently used).}
 }
 \value{
 A data.table with `InteractorA`, `InteractorB`, and `DICE` scores.

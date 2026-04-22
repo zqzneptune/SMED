@@ -4,7 +4,7 @@
 \alias{ScoreMI}
 \title{Calculate Mutual Information Score}
 \usage{
-ScoreMI(rawMat, n_fracs = 0, cutoff = 0.5, top_n = NULL)
+ScoreMI(rawMat, n_fracs = 0, cutoff = 0.5, top_n = NULL, ...)
 }
 \arguments{
 \item{rawMat}{A numeric matrix of protein elution profiles (proteins as rows, fractions as columns).}
@@ -14,6 +14,8 @@ ScoreMI(rawMat, n_fracs = 0, cutoff = 0.5, top_n = NULL)
 \item{cutoff}{Minimum MI score to retain a PPI. Default is 0.5.}
 
 \item{top_n}{Maximum number of PPIs to return. If NULL, cutoff is used.}
+
+\item{...}{Additional arguments (not currently used).}
 }
 \value{
 A data.table with `InteractorA`, `InteractorB`, and `MI` scores.

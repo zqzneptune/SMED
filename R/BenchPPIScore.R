@@ -13,26 +13,42 @@
 #' @importFrom magrittr %>%
 #' @export
 BenchPPIScore <- function(ppi, score, refInt){
-  if(length(ppi) == length(score)){
-    prt <- 
-      unique(unlist(strsplit(ppi, "~")))
-    ref <-
-      lapply(refInt, function(raw){
-        dat <-
-          raw %>% 
-            dplyr::filter((`InteractorA` %in% prt)&(`InteractorB` %in% prt))
-        return(dat)
-      })
-    respons <-
-      ifelse(ppi %in% ref$TP$PPI, 1, ifelse(ppi %in% ref$TN$PPI, 0, NA))
-    
-    fObjs <-
-      pROC::roc(predictor = score, 
-          response = respons, 
-          na.rm = TRUE)
-    return(fObjs)
-  }else{
+  if(length(ppi) != length(score)){
     stop("PPI and Score lengths don't match!")
   }
+  
+  # Normalize input PPIs
+  # Split and re-normalize to be safe
+  ppi_parts <- strsplit(ppi, "~")
+  ppi_norm <- vapply(ppi_parts, function(p) {
+    if(length(p) != 2) return(NA_character_)
+    .get_ppi_string(p[1], p[2])
+  }, character(1))
+  
+  # Normalize reference PPIs
+  ref_tp <- .get_ppi_string(refInt$TP$InteractorA, refInt$TP$InteractorB)
+  ref_tn <- .get_ppi_string(refInt$TN$InteractorA, refInt$TN$InteractorB)
+  
+  # Assign response
+  respons <- ifelse(ppi_norm %in% ref_tp, 1, 
+                    ifelse(ppi_norm %in% ref_tn, 0, NA))
+  
+  # Defensive check for ROC
+  valid_idx <- !is.na(respons)
+  if (sum(valid_idx) == 0) {
+    stop("No PPIs found in reference sets.")
+  }
+  
+  unique_labels <- unique(respons[valid_idx])
+  if (length(unique_labels) < 2) {
+    stop("ROC requires both TP and TN examples (found labels: ", 
+         paste(unique_labels, collapse = ", "), ")")
+  }
+  
+  fObjs <- pROC::roc(predictor = score, 
+                     response = respons, 
+                     na.rm = TRUE,
+                     quiet = TRUE)
+  return(fObjs)
 }
 

@@ -9,3 +9,4 @@ src/*.dll
 *.Rproj
 .Rapp.history
 *.Rproj
+*.tar.gz
